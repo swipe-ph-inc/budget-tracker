@@ -124,12 +124,12 @@
 @layer utilities {
   .gradient {
     /* Base gradient utility */
-    @apply bg-gradient-to-br from-blue-600 to-purple-600;
+    @apply bg-gradient-to-br from-[#023047] to-[#2190ae];
   }
   .gradient-title {
     /* FIX: Instead of trying to apply the custom 'gradient' class 
        (which causes the unknown utility error), we inline the core classes here. */
-    @apply bg-gradient-to-br from-blue-600 to-purple-600 font-extrabold tracking-tighter pr-2 pb-2 text-transparent bg-clip-text;
+    @apply bg-gradient-to-br from-[#023047] to-[#2190ae] font-extrabold tracking-tighter pr-2 pb-2 text-transparent bg-clip-text;
   }
 }
 
@@ -164,8 +164,4 @@
 .animate-gradient {
   background-size: 200% 200%;
   animation: gradientMove 3s ease infinite;
-}
-
-button {
-  hover:cursor-pointer;
 }

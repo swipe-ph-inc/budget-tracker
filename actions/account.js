@@ -67,12 +67,20 @@ export async function bulkDeleteTransactions(transactionIds) {
       },
     });
 
+    if (transactions.length === 0) {
+      throw new Error("No transactions found to delete");
+    }
+
     // Group transactions by account to update balances
     const accountBalanceChanges = transactions.reduce((acc, transaction) => {
-      const change =
-        transaction.type === "EXPENSE"
-          ? transaction.amount
-          : -transaction.amount;
+      // Convert Decimal to number
+      const amount = typeof transaction.amount === 'object' 
+        ? transaction.amount.toNumber() 
+        : transaction.amount;
+      
+      // When deleting: EXPENSE adds back to balance, INCOME subtracts from balance
+      const change = transaction.type === "EXPENSE" ? amount : -amount;
+      
       acc[transaction.accountId] = (acc[transaction.accountId] || 0) + change;
       return acc;
     }, {});
@@ -105,8 +113,9 @@ export async function bulkDeleteTransactions(transactionIds) {
     revalidatePath("/dashboard");
     revalidatePath("/account/[id]");
 
-    return { success: true };
+    return { success: true, count: transactions.length };
   } catch (error) {
+    console.error("Bulk delete error:", error);
     return { success: false, error: error.message };
   }
 }
