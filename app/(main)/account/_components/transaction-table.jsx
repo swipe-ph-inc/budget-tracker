@@ -180,9 +180,18 @@ export function TransactionTable({ transactions }) {
 
   useEffect(() => {
     if (deleted && !deleteLoading) {
-      toast.error("Transactions deleted successfully");
+      if (deleted.success) {
+        toast.success(
+          `${
+            deleted.count || selectedIds.length
+          } transactions deleted successfully`
+        );
+        setSelectedIds([]); // Clear selection after successful delete
+      } else {
+        toast.error(deleted.error || "Failed to delete transactions");
+      }
     }
-  }, [deleted, deleteLoading]);
+  }, [deleted, deleteLoading, selectedIds.length]);
 
   const handleClearFilters = () => {
     setSearchTerm("");
@@ -199,7 +208,7 @@ export function TransactionTable({ transactions }) {
   return (
     <div className="space-y-4">
       {deleteLoading && (
-        <BarLoader className="mt-4" width={"100%"} color="#9333ea" />
+        <BarLoader className="mt-4" width={"100%"} color="#ffa903" />
       )}
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
@@ -377,7 +386,7 @@ export function TransactionTable({ transactions }) {
                         : "text-green-500"
                     )}
                   >
-                    {transaction.type === "EXPENSE" ? "-" : "+"}$
+                    {transaction.type === "EXPENSE" ? "-" : "+"}₱
                     {transaction.amount.toFixed(2)}
                   </TableCell>
                   <TableCell>

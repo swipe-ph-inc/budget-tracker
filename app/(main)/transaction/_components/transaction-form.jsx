@@ -180,7 +180,7 @@ export function AddTransactionForm({
             <SelectContent>
               {accounts.map((account) => (
                 <SelectItem key={account.id} value={account.id}>
-                  {account.name} (${parseFloat(account.balance).toFixed(2)})
+                  {account.name} (₱{parseFloat(account.balance).toFixed(2)})
                 </SelectItem>
               ))}
               <CreateAccountDrawer>
@@ -305,7 +305,7 @@ export function AddTransactionForm({
       )}
 
       {/* Actions */}
-      <div className="flex gap-4">
+      <div className="space-y-2">
         <Button
           type="button"
           variant="outline"

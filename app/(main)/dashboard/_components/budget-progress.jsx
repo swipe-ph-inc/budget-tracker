@@ -87,6 +87,7 @@ export function BudgetProgress({ initialBudget, currentExpenses }) {
                   size="icon"
                   onClick={handleUpdateBudget}
                   disabled={isLoading}
+                  className="hover:cursor-pointer"
                 >
                   <Check className="h-4 w-4 text-green-500" />
                 </Button>
@@ -95,6 +96,7 @@ export function BudgetProgress({ initialBudget, currentExpenses }) {
                   size="icon"
                   onClick={handleCancel}
                   disabled={isLoading}
+                  className="hover:cursor-pointer"
                 >
                   <X className="h-4 w-4 text-red-500" />
                 </Button>
@@ -103,16 +105,16 @@ export function BudgetProgress({ initialBudget, currentExpenses }) {
               <>
                 <CardDescription>
                   {initialBudget
-                    ? `$${currentExpenses.toFixed(
+                    ? `₱${currentExpenses.toFixed(
                         2
-                      )} of $${initialBudget.amount.toFixed(2)} spent`
+                      )} of ₱${initialBudget.amount.toFixed(2)} spent`
                     : "No budget set"}
                 </CardDescription>
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => setIsEditing(true)}
-                  className="h-6 w-6"
+                  className="h-6 w-6 hover:cursor-pointer"
                 >
                   <Pencil className="h-3 w-3" />
                 </Button>
@@ -126,14 +128,13 @@ export function BudgetProgress({ initialBudget, currentExpenses }) {
           <div className="space-y-2">
             <Progress
               value={percentUsed}
-              extraStyles={`${
-                // add to Progress component
+              className={
                 percentUsed >= 90
-                  ? "bg-red-500"
+                  ? "[&>div]:bg-red-500"
                   : percentUsed >= 75
-                    ? "bg-yellow-500"
-                    : "bg-green-500"
-              }`}
+                  ? "[&>div]:bg-yellow-500"
+                  : "[&>div]:bg-green-500"
+              }
             />
             <p className="text-xs text-muted-foreground text-right">
               {percentUsed.toFixed(1)}% used
