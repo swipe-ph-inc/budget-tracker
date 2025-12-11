@@ -7,6 +7,8 @@ import {
   Preview,
   Section,
   Text,
+  Row,
+  Column,
 } from "@react-email/components";
 
 // Dummy data for preview
@@ -45,11 +47,20 @@ const PREVIEW_DATA = {
   },
 };
 
+function capitalizeWords(str) {
+  if (!str) return "";
+  return str
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
 export default function EmailTemplate({
   userName = "",
   type = "monthly-report",
   data = {},
 }) {
+  const formattedUserName = capitalizeWords(userName);
   if (type === "monthly-report") {
     return (
       <Html>
@@ -59,50 +70,64 @@ export default function EmailTemplate({
           <Container style={styles.container}>
             <Heading style={styles.title}>Monthly Financial Report</Heading>
 
-            <Text style={styles.text}>Hello {userName},</Text>
+            <Text style={styles.text}>Hello {formattedUserName},</Text>
             <Text style={styles.text}>
               Here&rsquo;s your financial summary for {data?.month}:
             </Text>
 
             {/* Main Stats */}
             <Section style={styles.statsContainer}>
-              <div style={styles.stat}>
-                <Text style={styles.text}>Total Income</Text>
-                <Text style={styles.heading}>${data?.stats.totalIncome}</Text>
-              </div>
-              <div style={styles.stat}>
-                <Text style={styles.text}>Total Expenses</Text>
-                <Text style={styles.heading}>${data?.stats.totalExpenses}</Text>
-              </div>
-              <div style={styles.stat}>
-                <Text style={styles.text}>Net</Text>
-                <Text style={styles.heading}>
-                  ${data?.stats.totalIncome - data?.stats.totalExpenses}
+              <Section style={styles.stat}>
+                <Text style={styles.statLabel}>Total Income</Text>
+                <Text style={styles.statValue}>
+                  ₱{(data?.stats?.totalIncome).toFixed(2)}
                 </Text>
-              </div>
+              </Section>
+              <Section style={styles.stat}>
+                <Text style={styles.statLabel}>Total Expenses</Text>
+                <Text style={styles.statValue}>
+                  ₱{(data?.stats?.totalExpenses).toFixed(2)}
+                </Text>
+              </Section>
+              <Section style={styles.stat}>
+                <Text style={styles.statLabel}>Net</Text>
+                <Text style={styles.statValue}>
+                  ₱
+                  {(data?.stats?.totalIncome || 0) -
+                    (data?.stats?.totalExpenses || 0)}
+                </Text>
+              </Section>
             </Section>
 
             {/* Category Breakdown */}
             {data?.stats?.byCategory && (
               <Section style={styles.section}>
                 <Heading style={styles.heading}>Expenses by Category</Heading>
-                {Object.entries(data?.stats.byCategory).map(
+                {Object.entries(data.stats.byCategory).map(
                   ([category, amount]) => (
-                    <div key={category} style={styles.row}>
-                      <Text style={styles.text}>{category}</Text>
-                      <Text style={styles.text}>${amount}</Text>
-                    </div>
+                    <Row key={category} style={styles.row}>
+                      <Column>
+                        <Text style={styles.categoryText}>
+                          {category.charAt(0).toUpperCase() + category.slice(1)}
+                        </Text>
+                      </Column>
+                      <Column align="right">
+                        <Text style={styles.categoryAmount}>
+                          ₱{amount.toFixed(2)}
+                        </Text>
+                      </Column>
+                    </Row>
                   )
                 )}
               </Section>
             )}
 
             {/* AI Insights */}
-            {data?.insights && (
+            {data?.insights && data.insights.length > 0 && (
               <Section style={styles.section}>
-                <Heading style={styles.heading}>Welth Insights</Heading>
+                <Heading style={styles.heading}>Swipe Advisor</Heading>
                 {data.insights.map((insight, index) => (
-                  <Text key={index} style={styles.text}>
+                  <Text key={index} style={styles.insightText}>
                     • {insight}
                   </Text>
                 ))}
@@ -110,8 +135,7 @@ export default function EmailTemplate({
             )}
 
             <Text style={styles.footer}>
-              Thank you for using Welth. Keep tracking your finances for better
-              financial health!
+              Swipe Budget Tracker - Empowering your financial health!
             </Text>
           </Container>
         </Body>
@@ -120,59 +144,89 @@ export default function EmailTemplate({
   }
 
   if (type === "budget-alert") {
+    const alertData =
+      type === "budget-alert" && !data?.budgetAmount
+        ? PREVIEW_DATA.budgetAlert.data
+        : data;
+
     return (
       <Html>
         <Head />
-        <Preview>Budget Alert</Preview>
+        <Preview>
+          Budget Alert - {alertData?.percentageUsed?.toFixed(1)}% Used
+        </Preview>
         <Body style={styles.body}>
           <Container style={styles.container}>
-            <Heading style={styles.title}>Budget Alert</Heading>
-            <Text style={styles.text}>Hello {userName},</Text>
+            <Heading style={styles.title}>⚠️ Budget Alert</Heading>
+            <Text style={styles.text}>Hello {formattedUserName},</Text>
             <Text style={styles.text}>
-              You&rsquo;ve used {data?.percentageUsed.toFixed(1)}% of your
+              You&rsquo;ve used {alertData?.percentageUsed?.toFixed(1)}% of your
               monthly budget.
             </Text>
             <Section style={styles.statsContainer}>
-              <div style={styles.stat}>
-                <Text style={styles.text}>Budget Amount</Text>
-                <Text style={styles.heading}>${data?.budgetAmount}</Text>
-              </div>
-              <div style={styles.stat}>
-                <Text style={styles.text}>Spent So Far</Text>
-                <Text style={styles.heading}>${data?.totalExpenses}</Text>
-              </div>
-              <div style={styles.stat}>
-                <Text style={styles.text}>Remaining</Text>
-                <Text style={styles.heading}>
-                  ${data?.budgetAmount - data?.totalExpenses}
+              <Section style={styles.stat}>
+                <Text style={styles.statLabel}>Budget Amount</Text>
+                <Text style={styles.statValue}>₱{alertData?.budgetAmount}</Text>
+              </Section>
+              <Section style={styles.stat}>
+                <Text style={styles.statLabel}>Spent So Far</Text>
+                <Text style={styles.statValue}>
+                  ₱{alertData?.totalExpenses}
                 </Text>
-              </div>
+              </Section>
+              <Section style={styles.stat}>
+                <Text style={styles.statLabel}>Remaining</Text>
+                <Text style={styles.statValue}>
+                  ₱
+                  {(alertData?.budgetAmount || 0) -
+                    (alertData?.totalExpenses || 0)}
+                </Text>
+              </Section>
             </Section>
+            <Text style={styles.footer}>
+              Keep track of your spending to stay within budget!
+            </Text>
           </Container>
         </Body>
       </Html>
     );
   }
+
+  // Fallback
+  return (
+    <Html>
+      <Head />
+      <Preview>Email Template</Preview>
+      <Body style={styles.body}>
+        <Container style={styles.container}>
+          <Text style={styles.text}>Invalid email type</Text>
+        </Container>
+      </Body>
+    </Html>
+  );
 }
 
 const styles = {
   body: {
     backgroundColor: "#f6f9fc",
-    fontFamily: "-apple-system, sans-serif",
+    fontFamily:
+      "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    padding: "20px 0",
   },
   container: {
     backgroundColor: "#ffffff",
     margin: "0 auto",
-    padding: "20px",
-    borderRadius: "5px",
-    boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+    padding: "40px 30px",
+    borderRadius: "8px",
+    maxWidth: "600px",
   },
   title: {
     color: "#1f2937",
-    fontSize: "32px",
+    fontSize: "28px",
     fontWeight: "bold",
     textAlign: "center",
-    margin: "0 0 20px",
+    margin: "0 0 30px",
+    lineHeight: "1.3",
   },
   heading: {
     color: "#1f2937",
@@ -183,40 +237,69 @@ const styles = {
   text: {
     color: "#4b5563",
     fontSize: "16px",
+    lineHeight: "1.6",
     margin: "0 0 16px",
   },
   section: {
-    marginTop: "32px",
+    marginTop: "30px",
     padding: "20px",
     backgroundColor: "#f9fafb",
-    borderRadius: "5px",
+    borderRadius: "8px",
     border: "1px solid #e5e7eb",
   },
   statsContainer: {
-    margin: "32px 0",
-    padding: "20px",
-    backgroundColor: "#f9fafb",
-    borderRadius: "5px",
+    margin: "30px 0",
+    padding: "0",
   },
   stat: {
     marginBottom: "16px",
-    padding: "12px",
-    backgroundColor: "#fff",
-    borderRadius: "4px",
-    boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)",
+    padding: "20px",
+    backgroundColor: "#f9fafb",
+    borderRadius: "8px",
+    border: "1px solid #e5e7eb",
+  },
+  statLabel: {
+    color: "#6b7280",
+    fontSize: "14px",
+    margin: "0 0 8px",
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
+  },
+  statValue: {
+    color: "#1f2937",
+    fontSize: "24px",
+    fontWeight: "bold",
+    margin: "0",
   },
   row: {
-    display: "flex",
-    justifyContent: "space-between",
     padding: "12px 0",
     borderBottom: "1px solid #e5e7eb",
+  },
+  categoryText: {
+    color: "#4b5563",
+    fontSize: "16px",
+    margin: "0",
+  },
+  categoryAmount: {
+    color: "#1f2937",
+    fontSize: "16px",
+    fontWeight: "600",
+    margin: "0",
+  },
+  insightText: {
+    color: "#4b5563",
+    fontSize: "15px",
+    lineHeight: "1.7",
+    margin: "0 0 12px",
+    paddingLeft: "8px",
   },
   footer: {
     color: "#6b7280",
     fontSize: "14px",
     textAlign: "center",
-    marginTop: "32px",
-    paddingTop: "16px",
+    marginTop: "40px",
+    paddingTop: "20px",
     borderTop: "1px solid #e5e7eb",
+    lineHeight: "1.5",
   },
 };

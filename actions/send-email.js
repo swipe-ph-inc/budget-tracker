@@ -7,11 +7,11 @@ export async function sendEmail({ to, subject, react }) {
 
   try {
     const data = await resend.emails.send({
-      from: "Finance App <onboarding@resend.dev>",
-      to,
-      subject,
-      react,
-    });
+    from: 'Swipe Budget Tracker <onboarding@resend.dev>',
+    to,
+    subject,
+    react,
+  });
 
     return { success: true, data };
   } catch (error) {

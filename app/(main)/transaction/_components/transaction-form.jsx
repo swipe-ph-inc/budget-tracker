@@ -95,6 +95,7 @@ export function AddTransactionForm({
   };
 
   const handleScanComplete = (scannedData) => {
+    console.log("Scanned Data:", scannedData);
     if (scannedData) {
       setValue("amount", scannedData.amount.toString());
       setValue("date", new Date(scannedData.date));
@@ -122,6 +123,7 @@ export function AddTransactionForm({
 
   const type = watch("type");
   const isRecurring = watch("isRecurring");
+  const category = watch("category");
   const date = watch("date");
 
   const filteredCategories = categories.filter(
@@ -203,8 +205,9 @@ export function AddTransactionForm({
       <div className="space-y-2">
         <label className="text-sm font-medium">Category</label>
         <Select
+          value={category}
           onValueChange={(value) => setValue("category", value)}
-          defaultValue={getValues("category")}
+          // defaultValue={getValues("category")}
         >
           <SelectTrigger>
             <SelectValue placeholder="Select category" />
@@ -305,27 +308,35 @@ export function AddTransactionForm({
       )}
 
       {/* Actions */}
-      <div className="space-y-2">
-        <Button
-          type="button"
-          variant="outline"
-          className="w-full"
-          onClick={() => router.back()}
-        >
-          Cancel
-        </Button>
-        <Button type="submit" className="w-full" disabled={transactionLoading}>
-          {transactionLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {editMode ? "Updating..." : "Creating..."}
-            </>
-          ) : editMode ? (
-            "Update Transaction"
-          ) : (
-            "Create Transaction"
-          )}
-        </Button>
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="space-y-2">
+          <Button
+            type="submit"
+            className="w-full bg-[#2190ae] hover:bg-[#2190ae] hover:opacity-80 text-white hover:cursor-pointer"
+            disabled={transactionLoading}
+          >
+            {transactionLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {editMode ? "Updating..." : "Creating..."}
+              </>
+            ) : editMode ? (
+              "Update Transaction"
+            ) : (
+              "Create Transaction"
+            )}
+          </Button>
+        </div>
+        <div className="space-y-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full hover:cursor-pointer"
+            onClick={() => router.back()}
+          >
+            Cancel
+          </Button>
+        </div>
       </div>
     </form>
   );
