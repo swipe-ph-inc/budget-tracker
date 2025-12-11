@@ -50,7 +50,7 @@ const Header = async () => {
               </Button>
             </Link>
             <a href="/transaction/create">
-              <Button className="flex items-center gap-2 bg-[#ffa903] text-white hover:text-[#ffa903] hover:bg-white hover:cursor-pointer">
+              <Button className="flex items-center gap-2 bg-[#2190ae] text-white hover:text-[#2190ae] hover:bg-white hover:cursor-pointer">
                 <PenBox size={18} />
                 <span className="hidden md:inline">Add Transaction</span>
               </Button>
@@ -58,7 +58,7 @@ const Header = async () => {
           </SignedIn>
           <SignedOut>
             <SignInButton forceRedirectUrl="/dashboard">
-              <Button variant="outline" className="text-gray-900 hover:bg-[#ffa903] hover:text-white hover:cursor-pointer">Login</Button>
+              <Button variant="outline" className="text-gray-900 hover:bg-[#2190ae] hover:text-white hover:cursor-pointer">Login</Button>
             </SignInButton>
           </SignedOut>
           <SignedIn>
