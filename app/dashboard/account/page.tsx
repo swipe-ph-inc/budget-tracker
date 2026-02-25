@@ -1,28 +1,47 @@
 "use client"
 
+import { useCallback, useEffect, useState } from "react"
 import { TopHeader } from "@/components/top-header"
-import { Plus, ArrowUpDown, DollarSign, MoreVertical, BookOpen, Tv, Briefcase, ShoppingCart, Dumbbell, Zap, ChevronDown } from "lucide-react"
+import { Plus, ArrowUpDown, DollarSign, BookOpen, Tv, Briefcase, ShoppingCart, Dumbbell, Zap, ChevronDown, CreditCard, Wifi } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-} from "recharts"
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  type CarouselApi,
+} from "@/components/ui/carousel"
+import { cn } from "@/lib/utils"
 
-const cards = [
+type CardVariant = "light" | "dark"
+
+type CardItem = {
+  name: string
+  displayName?: string[]
+  type: string
+  badge: string | null
+  balance: string
+  number: string
+  fullNumber?: string
+  exp: string
+  cvv: string
+  variant: CardVariant
+  holderName?: string
+  gradient: string
+}
+
+const cards: CardItem[] = [
   {
     name: "Platinum Plus Visa",
     type: "Debit",
     badge: "VISA",
     balance: "$415,000",
     number: "**** **** **** 9967",
+    fullNumber: "5582 5574 8376 9967",
     exp: "12/29",
     cvv: "313",
-    variant: "light" as const,
+    variant: "light",
+    holderName: "Amanda Oliveira",
+    gradient: "from-slate-800 via-indigo-900 to-violet-900",
   },
   {
     name: "Freedom Unlimited\nMastercard",
@@ -31,9 +50,12 @@ const cards = [
     badge: null,
     balance: "$532,000",
     number: "**** **** **** 5487",
+    fullNumber: "4562 1122 4595 7852",
     exp: "05/25",
     cvv: "411",
-    variant: "dark" as const,
+    variant: "dark",
+    holderName: "Jonson",
+    gradient: "from-blue-900 via-indigo-900 to-purple-900",
   },
   {
     name: "Elite Traveler\nMastercard",
@@ -42,19 +64,13 @@ const cards = [
     badge: null,
     balance: "$430,000",
     number: "**** **** **** 3321",
+    fullNumber: "5582 5574 8376 3321",
     exp: "08/29",
     cvv: "672",
-    variant: "light" as const,
+    variant: "dark",
+    holderName: "Amanda Oliveira",
+    gradient: "from-rose-900 via-red-800 to-amber-900",
   },
-]
-
-const cashflowData = [
-  { month: "Mar", income: 6000, expense: -3000 },
-  { month: "Apr", income: 7000, expense: -4500 },
-  { month: "May", income: 8000, expense: -6000 },
-  { month: "Jun", income: 5000, expense: -3000 },
-  { month: "Jul", income: 9500, expense: -5000 },
-  { month: "Aug", income: 7500, expense: -4000 },
 ]
 
 const cardTransactions = [
@@ -66,203 +82,263 @@ const cardTransactions = [
   { name: "Electricity Bill", category: "Utilities", icon: Zap, txId: "4567890128", date: "2028-09-19", time: "08:20 AM", amount: "$70.00", isIncome: false, note: "Home electricity bill", status: "Pending" },
 ]
 
-export default function CardsPage() {
+function CarouselCard({ card, isCenter }: { card: CardItem; isCenter: boolean }) {
+  const isDark = card.variant === "dark"
+  return (
+    <div
+      className={cn(
+        "relative min-h-[200px] w-full overflow-hidden rounded-2xl bg-gradient-to-br p-5 shadow-lg transition-all duration-300",
+        card.gradient,
+        isCenter ? "scale-100 opacity-100 ring-2 ring-primary/50" : "scale-90 opacity-70"
+      )}
+    >
+      {/* Subtle pattern overlay */}
+      <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "radial-gradient(circle at 20% 80%, white 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
+
+      {/* Top row: chip / bank vs type + contactless */}
+      <div className="relative flex items-start justify-between">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-10 items-center justify-center rounded-md border border-white/30 bg-white/10">
+            <CreditCard className="h-4 w-4 text-white" aria-hidden />
+          </div>
+          <span className="text-xs font-medium uppercase tracking-wider text-white/90">
+            {card.badge ?? card.type}
+          </span>
+        </div>
+        <Wifi className="h-5 w-5 text-white/90" aria-hidden />
+      </div>
+
+      {/* Card number */}
+      <div className="relative mt-6">
+        <p className="font-mono text-lg font-semibold tracking-[0.2em] text-white sm:text-xl">
+          {card.number}
+        </p>
+      </div>
+
+      {/* Bottom row: Valid thru, CVV, name, brand */}
+      <div className="relative mt-6 flex items-end justify-between">
+        <div className="flex gap-4">
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-white/70">Valid thru</p>
+            <p className="font-semibold text-white">{card.exp}</p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-white/70">CVV</p>
+            <p className="font-semibold text-white">{card.cvv}</p>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-xs font-medium text-white/90">{card.holderName ?? "Cardholder"}</p>
+          {card.badge ? (
+            <span className="mt-1 inline-block text-sm font-bold italic tracking-wider text-white">
+              {card.badge}
+            </span>
+          ) : (
+            <div className="mt-1 flex justify-end gap-0.5">
+              <span className="h-5 w-5 rounded-full bg-red-500/90" />
+              <span className="h-5 w-5 rounded-full bg-amber-400/90 -ml-2" />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function AccountPage() {
+  const [api, setApi] = useState<CarouselApi | null>(null)
+  const [selectedIndex, setSelectedIndex] = useState(0)
+
+  const updateSelected = useCallback((emblaApi: CarouselApi | undefined) => {
+    if (!emblaApi) return
+    setSelectedIndex(emblaApi.selectedScrollSnap())
+  }, [])
+
+  useEffect(() => {
+    if (!api) return
+    updateSelected(api)
+    api.on("select", updateSelected)
+    return () => {
+      api.off("select", updateSelected)
+    }
+  }, [api, updateSelected])
+
+  const selectedCard = cards[selectedIndex] ?? cards[0]
+
   return (
     <>
       <TopHeader title="Account" />
       <div className="flex-1 overflow-y-auto p-4 lg:p-6">
-        {/* Top Section: 2 columns (charts on right removed) */}
-        <div className="grid min-h-full grid-cols-1 gap-4 lg:grid-cols-[280px_1fr] xl:grid-cols-[320px_1fr] lg:gap-5">
+        {/* ===== MOBILE-FIRST: Card carousel at top, center = selected ===== */}
+        <section className="mb-6 lg:mb-8">
+          <div className="flex items-center justify-between px-1 pb-3">
+            <h2 className="text-base font-semibold text-card-foreground">My Cards</h2>
+            <button type="button" className="flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80">
+              <Plus className="h-4 w-4" /> Add
+            </button>
+          </div>
 
-          {/* ===== LEFT COLUMN: My Cards ===== */}
-          <div className="rounded-xl border border-border bg-card p-4 lg:p-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-card-foreground">My Cards</h2>
-              <button className="flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80">
-                <Plus className="h-4 w-4" /> Add
-              </button>
-            </div>
-            <div className="mt-4 flex flex-col gap-4">
-              {cards.map((card, i) => {
-                const isDark = card.variant === "dark"
-                return (
-                  <div
-                    key={i}
-                    className={`relative overflow-hidden rounded-2xl p-5 ${isDark
-                        ? "bg-[hsl(150,25%,18%)] text-[hsl(0,0%,100%)]"
-                        : "border border-border bg-card text-card-foreground"
-                      }`}
+          <div className="relative mx-auto max-w-[min(100%,420px)]">
+            <Carousel
+              setApi={setApi}
+              opts={{
+                align: "center",
+                loop: true,
+                dragFree: false,
+              }}
+              className="w-full"
+            >
+              <CarouselContent className="-ml-2 flex items-stretch md:-ml-4">
+                {cards.map((card, index) => (
+                  <CarouselItem
+                    key={index}
+                    className="basis-[85%] pl-2 md:basis-[80%] md:pl-4"
                   >
-                    {/* Card top row */}
-                    <div className="flex items-start justify-between">
-                      <div>
-                        {card.displayName ? (
-                          <div className={`text-xs leading-tight ${isDark ? "text-[hsl(0,0%,100%)]/70" : "text-muted-foreground"}`}>
-                            {card.displayName.map((line, idx) => (
-                              <span key={idx} className="block">{line}</span>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className={`text-xs ${isDark ? "text-[hsl(0,0%,100%)]/70" : "text-muted-foreground"}`}>
-                            {card.name}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {card.badge ? (
-                          <span className="text-lg font-bold italic tracking-wider text-primary">
-                            {card.badge}
-                          </span>
-                        ) : (
-                          <div className="flex">
-                            <span className={`h-6 w-6 rounded-full ${isDark ? "bg-[hsl(145,50%,45%)]/70" : "bg-[hsl(145,50%,50%)]/50"}`} />
-                            <span className={`-ml-3 h-6 w-6 rounded-full ${isDark ? "bg-[hsl(145,30%,65%)]/50" : "bg-[hsl(145,30%,70%)]/40"}`} />
-                          </div>
-                        )}
-                      </div>
+                    <div className="flex h-full items-center">
+                      <CarouselCard card={card} isCenter={selectedIndex === index} />
                     </div>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+            </Carousel>
 
-                    {/* Balance row */}
-                    <div className="mt-4 flex items-end justify-between">
-                      <p className="text-2xl font-bold">{card.balance}</p>
-                      <span className={`text-sm font-medium ${isDark ? "text-[hsl(0,0%,100%)]/80" : "text-muted-foreground"}`}>
-                        {card.type}
-                      </span>
-                    </div>
+            {/* Pagination dots (same behavior as carousel-sample: center = selected) */}
+            <div className="mt-4 flex justify-center gap-2">
+              {cards.map((_, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() => api?.scrollTo(index)}
+                  aria-label={`Go to card ${index + 1}`}
+                  className={cn(
+                    "h-2 rounded-full transition-all",
+                    index === selectedIndex
+                      ? "w-6 bg-foreground"
+                      : "w-2 border border-border bg-transparent"
+                  )}
+                />
+              ))}
+            </div>
+          </div>
+        </section>
 
-                    {/* Card details row */}
-                    <div className={`mt-4 flex items-center justify-between text-xs ${isDark ? "text-[hsl(0,0%,100%)]/60" : "text-muted-foreground"}`}>
-                      <div>
-                        <p>Card Number</p>
-                        <p className={`mt-0.5 font-medium ${isDark ? "text-[hsl(0,0%,100%)]" : "text-card-foreground"}`}>{card.number}</p>
-                      </div>
-                      <div className="text-center">
-                        <p>EXP</p>
-                        <p className={`mt-0.5 font-medium ${isDark ? "text-[hsl(0,0%,100%)]" : "text-card-foreground"}`}>{card.exp}</p>
-                      </div>
-                      <div className="text-right">
-                        <p>CVV</p>
-                        <p className={`mt-0.5 font-medium ${isDark ? "text-[hsl(0,0%,100%)]" : "text-card-foreground"}`}>{card.cvv}</p>
-                      </div>
-                    </div>
+        {/* ===== BELOW: Same content as previous right column (details + transactions) ===== */}
+        <div className="flex flex-col gap-4 lg:gap-5">
+          {/* Card Details + Quick Actions */}
+          <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 lg:flex-row lg:items-center lg:justify-between lg:gap-6 lg:p-5">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-muted-foreground">Card Number</p>
+              <p className="mt-1 text-xl font-bold tracking-widest text-card-foreground lg:text-2xl">
+                {selectedCard.fullNumber ?? selectedCard.number}
+              </p>
+              <div className="mt-5 flex flex-wrap items-center gap-6 gap-y-4 lg:gap-8">
+                <div>
+                  <p className="text-xs text-muted-foreground">Expiry Date</p>
+                  <p className="mt-1 text-sm font-bold text-card-foreground">{selectedCard.exp}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">CVC</p>
+                  <p className="mt-1 text-sm font-bold text-card-foreground">{selectedCard.cvv}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Status</p>
+                  <Badge className="mt-1 rounded-md bg-primary/15 px-3 py-0.5 text-xs font-semibold text-primary hover:bg-primary/15">
+                    Active
+                  </Badge>
+                </div>
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-2 lg:gap-3">
+              {[
+                { icon: Plus, label: "Top Up" },
+                { icon: ArrowUpDown, label: "Transfer" },
+                { icon: DollarSign, label: "Payment" },
+              ].map((action) => (
+                <button
+                  key={action.label}
+                  type="button"
+                  title={action.label}
+                  className="flex items-center justify-center rounded-xl border border-border bg-background p-3 transition-colors hover:bg-accent lg:p-4"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card">
+                    <action.icon className="h-5 w-5 text-foreground" aria-hidden />
                   </div>
-                )
-              })}
+                  <span className="sr-only">{action.label}</span>
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* ===== MIDDLE COLUMN: Card Details + Quick Actions (single card) ===== */}
-          <div className="flex min-h-0 flex-1 flex-col gap-4 lg:gap-5">
-            {/* Card Details with actions on the right */}
-            <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 lg:flex-row lg:items-center lg:justify-between lg:gap-6 lg:p-5">
-              <div className="min-w-0 flex-1">
-                <p className="text-xs text-muted-foreground">Card Number</p>
-                <p className="mt-1 text-xl font-bold tracking-widest text-card-foreground lg:text-2xl">5582 5574 8376 5487</p>
-                <div className="mt-5 flex flex-wrap items-center gap-6 gap-y-4 lg:gap-8">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Expiry Date</p>
-                    <p className="mt-1 text-sm font-bold text-card-foreground">05/25</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">CVC</p>
-                    <p className="mt-1 text-sm font-bold text-card-foreground">411</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Status</p>
-                    <Badge className="mt-1 rounded-md bg-primary/15 px-3 py-0.5 text-xs font-semibold text-primary hover:bg-primary/15">
-                      Active
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-              <div className="flex shrink-0 items-center gap-2 lg:gap-3">
-                {[
-                  { icon: Plus, label: "Top Up" },
-                  { icon: ArrowUpDown, label: "Transfer" },
-                  { icon: DollarSign, label: "Payment" },
-                ].map((action) => (
-                  <button
-                    key={action.label}
-                    type="button"
-                    title={action.label}
-                    className="flex items-center justify-center rounded-xl border border-border bg-background p-3 transition-colors hover:bg-accent lg:p-4"
-                  >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card">
-                      <action.icon className="h-5 w-5 text-foreground" aria-hidden />
-                    </div>
-                    <span className="sr-only">{action.label}</span>
-                  </button>
-                ))}
-              </div>
+          {/* Transactions */}
+          <div className="flex min-h-0 flex-1 flex-col rounded-xl border border-border bg-card">
+            <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-4 lg:px-6">
+              <h3 className="text-base font-semibold text-card-foreground">Transactions</h3>
+              <select className="rounded-lg border border-input bg-background px-3 py-1.5 text-xs text-foreground focus:outline-none">
+                <option>This Month</option>
+                <option>Last Month</option>
+              </select>
             </div>
-
-            {/* Transactions — fixed height, scrollable list */}
-            <div className="flex min-h-0 flex-1 flex-col rounded-xl border border-border bg-card">
-              <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-4 lg:px-6">
-                <h3 className="text-base font-semibold text-card-foreground">Transactions</h3>
-                <select className="rounded-lg border border-input bg-background px-3 py-1.5 text-xs text-foreground focus:outline-none">
-                  <option>This Month</option>
-                  <option>Last Month</option>
-                </select>
-              </div>
-              <div className="h-[490px] min-h-0 overflow-auto overflow-x-auto">
-                <table className="w-full min-w-[800px] text-sm">
-                  <thead className="sticky top-0 z-10 bg-card shadow-sm">
-                    <tr className="border-b border-border">
-                      <th className="w-10 bg-card px-4 py-3 lg:px-5">
-                        <input type="checkbox" className="h-4 w-4 rounded border-input accent-primary" />
+            <div className="h-[490px] min-h-0 overflow-auto overflow-x-auto">
+              <table className="w-full min-w-[800px] text-sm">
+                <thead className="sticky top-0 z-10 bg-card shadow-sm">
+                  <tr className="border-b border-border">
+                    <th className="w-10 bg-card px-4 py-3 lg:px-5">
+                      <input type="checkbox" className="h-4 w-4 rounded border-input accent-primary" aria-label="Select all" />
+                    </th>
+                    {["Transaction Name", "Transaction ID", "Date & Time", "Amount", "Note", "Status"].map((col) => (
+                      <th key={col} className="bg-card px-4 py-3 text-left lg:px-5">
+                        <button type="button" className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
+                          {col} <ChevronDown className="h-3 w-3" />
+                        </button>
                       </th>
-                      {["Transaction Name", "Transaction ID", "Date & Time", "Amount", "Note", "Status"].map((col) => (
-                        <th key={col} className="bg-card px-4 py-3 text-left lg:px-5">
-                          <button className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
-                            {col} <ChevronDown className="h-3 w-3" />
-                          </button>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cardTransactions.map((tx, i) => {
-                      const Icon = tx.icon
-                      return (
-                        <tr key={i} className="border-b border-border last:border-0 transition-colors hover:bg-muted/20">
-                          <td className="px-4 py-3.5 lg:px-5">
-                            <input type="checkbox" className="h-4 w-4 rounded border-input accent-primary" />
-                          </td>
-                          <td className="px-4 py-3.5 lg:px-5">
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent">
-                                <Icon className="h-4 w-4 text-accent-foreground" />
-                              </div>
-                              <div>
-                                <p className="font-medium text-card-foreground">{tx.name}</p>
-                                <p className="text-xs text-muted-foreground">{tx.category}</p>
-                              </div>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {cardTransactions.map((tx, i) => {
+                    const Icon = tx.icon
+                    return (
+                      <tr key={i} className="border-b border-border last:border-0 transition-colors hover:bg-muted/20">
+                        <td className="px-4 py-3.5 lg:px-5">
+                          <input type="checkbox" className="h-4 w-4 rounded border-input accent-primary" aria-label={`Select ${tx.name}`} />
+                        </td>
+                        <td className="px-4 py-3.5 lg:px-5">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent">
+                              <Icon className="h-4 w-4 text-accent-foreground" />
                             </div>
-                          </td>
-                          <td className="px-4 py-3.5 text-muted-foreground lg:px-5">{tx.txId}</td>
-                          <td className="px-4 py-3.5 lg:px-5">
-                            <p className="text-card-foreground">{tx.date}</p>
-                            <p className="text-xs text-muted-foreground">{tx.time}</p>
-                          </td>
-                          <td className={`px-4 py-3.5 font-medium lg:px-5 ${tx.isIncome ? "text-primary" : "text-destructive"}`}>
-                            {tx.amount}
-                          </td>
-                          <td className="max-w-[200px] truncate px-4 py-3.5 text-muted-foreground lg:px-5">{tx.note}</td>
-                          <td className="px-4 py-3.5 lg:px-5">
-                            <Badge className={`rounded-full px-3 py-1 text-xs font-medium ${tx.status === "Completed"
+                            <div>
+                              <p className="font-medium text-card-foreground">{tx.name}</p>
+                              <p className="text-xs text-muted-foreground">{tx.category}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3.5 text-muted-foreground lg:px-5">{tx.txId}</td>
+                        <td className="px-4 py-3.5 lg:px-5">
+                          <p className="text-card-foreground">{tx.date}</p>
+                          <p className="text-xs text-muted-foreground">{tx.time}</p>
+                        </td>
+                        <td className={`px-4 py-3.5 font-medium lg:px-5 ${tx.isIncome ? "text-primary" : "text-destructive"}`}>
+                          {tx.amount}
+                        </td>
+                        <td className="max-w-[200px] truncate px-4 py-3.5 text-muted-foreground lg:px-5">{tx.note}</td>
+                        <td className="px-4 py-3.5 lg:px-5">
+                          <Badge
+                            className={cn(
+                              "rounded-full px-3 py-1 text-xs font-medium",
+                              tx.status === "Completed"
                                 ? "bg-primary/10 text-primary hover:bg-primary/10"
                                 : "bg-warning/10 text-warning hover:bg-warning/10"
-                              }`}>
-                              {tx.status}
-                            </Badge>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                            )}
+                          >
+                            {tx.status}
+                          </Badge>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
