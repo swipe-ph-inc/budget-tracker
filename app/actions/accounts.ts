@@ -5,16 +5,30 @@ import type { Database } from "@/lib/supabase/database.types"
 
 type AccountRow = Database["public"]["Tables"]["account"]["Row"]
 type AccountInsert = Database["public"]["Tables"]["account"]["Insert"]
-type AccountUpdate = Database["public"]["Tables"]["account"]["Update"]
 
 export type CreateAccountResult =
     | { success: true; data?: { id: string } }
+    | { success: false; error: string }
+
+export type DeactivateAccountResult =
+    | { success: true; message: string }
     | { success: false; error: string }
 
 function parseBalance(value: string): number {
     const cleaned = value.replace(/,/g, "")
     const parsed = parseFloat(cleaned)
     return Number.isNaN(parsed) ? 0 : Math.max(0, parsed)
+}
+
+
+type UpdateAccountValues = {
+    accountId: string
+    accountName?: string
+    totalBalance?: string
+    accountType?: "savings" | "current" | "checking" | "e_wallet" | "cash" | "other"
+    maskedIdentifier?: string
+    currency?: string
+    bankName?: string | null
 }
 
 export async function createAccount(
@@ -27,6 +41,7 @@ export async function createAccount(
         accountType: string
         cardType: string
         isHidden: boolean
+        background: string
     }
 ): Promise<CreateAccountResult> {
     const supabase = await createClient()
@@ -75,6 +90,57 @@ export async function createAccount(
     return { success: true, data: { id: data.id } }
 }
 
+export async function updateAccount(values: UpdateAccountValues): Promise<CreateAccountResult> {
+    const supabase = await createClient()
+    const { accountId } = values
+    if (!accountId) {
+        return { success: false, error: "Account ID is required." }
+    }
+
+    // Build update payload with only non-undefined fields
+    const updateFields: any = {}
+
+    if (typeof values.accountName === "string") {
+        updateFields.name = values.accountName.trim()
+    }
+    if (values.totalBalance !== undefined) {
+        updateFields.balance = parseBalance(values.totalBalance)
+    }
+    if (values.accountType) {
+        updateFields.account_type = values.accountType
+    }
+    if (typeof values.maskedIdentifier === "string") {
+        updateFields.masked_identifier = values.maskedIdentifier.trim()
+    }
+    if (typeof values.currency === "string") {
+        updateFields.currency = values.currency
+    }
+    // Null or string for bank name
+    if ("bankName" in values) {
+        updateFields.bank_name =
+            values.bankName === null
+                ? null
+                : (values.bankName?.trim?.() ?? null)
+    }
+
+    if (Object.keys(updateFields).length === 0) {
+        return { success: false, error: "No update fields provided." }
+    }
+
+    const { data, error } = await supabase
+        .from("account")
+        .update(updateFields)
+        .eq("id", accountId)
+        .select("id")
+        .single()
+
+    if (error) {
+        return { success: false, error: error.message }
+    }
+
+    return { success: true, data: { id: data.id } }
+}
+
 export async function getAccounts(): Promise<AccountRow[]> {
     const supabase = await createClient()
     const { data, error } = await supabase
@@ -87,4 +153,36 @@ export async function getAccounts(): Promise<AccountRow[]> {
     }
 
     return data ?? []
+}
+
+export async function deactivateAccount(accountId: string): Promise<DeactivateAccountResult> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+        .from("account")
+        .update({ is_active: false })
+        .eq("id", accountId)
+        .select("id, is_active")
+        .single();
+
+    if (error) {
+        return { success: false, error: error.message };
+    }
+
+    return { success: true, message: "Account successfully Deactivated!!" };
+}
+
+export async function deleteAccount(accountId: string): Promise<DeactivateAccountResult> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+        .from("account")
+        .update({ is_deleted: true })
+        .eq("id", accountId)
+        .select("id, is_deleted")
+        .single();
+
+    if (error) {
+        return { success: false, error: error.message };
+    }
+
+    return { success: true, message: "Account successfully Deactivated!!" };
 }

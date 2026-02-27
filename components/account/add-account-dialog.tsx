@@ -48,6 +48,11 @@ export const CARD_TYPES = [
   { value: "none", label: "None" },
 ] as const
 
+export const BACKGROUND = [
+  { value: "https://i.imgur.com/kGkSg1v.png", label: "Blue" },
+  { value: "https://i.imgur.com/Zi6v09P.png", label: "Orange" },
+] as const
+
 export interface AddAccountFormValues {
   accountName: string
   bankName: string
@@ -65,7 +70,7 @@ interface AddAccountDialogProps {
 }
 
 function generateMaskedIdentifier(): string {
-  const digits = Array.from({ length: 13 }, () =>
+  const digits = Array.from({ length: 16 }, () =>
     Math.floor(Math.random() * 10)
   ).join("")
   return digits
@@ -73,14 +78,30 @@ function generateMaskedIdentifier(): string {
 
 /** Formats a numeric input string with locale thousands separators (e.g. 1234567.89 -> 1,234,567.89) */
 function formatBalanceInput(value: string): string {
-  const cleaned = value.replace(/[^\d.]/g, "")
-  const [intPart = "", decPart = ""] = cleaned.split(".")
-  const hasDecimal = cleaned.includes(".")
-  const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-  if (!hasDecimal || decPart === "") {
-    return decPart === "" ? formattedInt : `${formattedInt}.`
+  if (!value) return ""
+  let cleaned = value.replace(/[^\d.]/g, "")
+  const firstDotIndex = cleaned.indexOf(".")
+  if (firstDotIndex !== -1) {
+    cleaned =
+      cleaned.slice(0, firstDotIndex + 1) +
+      cleaned.slice(firstDotIndex + 1).replace(/\./g, "")
   }
-  return `${formattedInt}.${decPart.slice(0, 2)}`
+  const hasDecimal = cleaned.includes(".")
+  let [intPart = "", decPart = ""] = cleaned.split(".")
+  if (intPart === "" && hasDecimal) {
+    intPart = "0"
+  }
+  const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+
+  if (hasDecimal && cleaned.endsWith(".")) {
+    return `${formattedInt}.`
+  }
+
+  if (hasDecimal) {
+    return `${formattedInt}.${decPart.slice(0, 2)}`
+  }
+
+  return formattedInt
 }
 
 export function AddAccountDialog({
@@ -94,10 +115,12 @@ export function AddAccountDialog({
   const [currency, setCurrency] = useState<string>("PHP")
   const [accountType, setAccountType] = useState<string>("savings")
   const [cardType, setCardType] = useState<string>("none")
+  const [background, setBackground] = useState<string>("")
   const [hideContents, setHideContents] = useState<boolean>(false)
   const [status, setStatus] = useState<
     { type: "success" | "error"; message: string } | null
   >(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const prevOpenRef = useRef(false)
   useEffect(() => {
@@ -110,6 +133,23 @@ export function AddAccountDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    const missingFields: string[] = []
+    if (!accountName.trim()) missingFields.push("Account Name")
+    if (!bankName.trim()) missingFields.push("Bank Name")
+    if (!maskedIdentifier.trim()) missingFields.push("Masked Identifier")
+    if (!totalBalance.trim()) missingFields.push("Total Balance")
+    if (!background.trim()) missingFields.push("Background Color")
+
+    if (missingFields.length > 0) {
+      setStatus({
+        type: "error",
+        message: `Please fill in the following required fields: ${missingFields.join(
+          ", "
+        )}.`,
+      })
+      return
+    }
+
     const payload = {
       accountName,
       bankName,
@@ -118,9 +158,11 @@ export function AddAccountDialog({
       currency,
       accountType,
       cardType,
-      isHidden: hideContents
+      isHidden: hideContents,
+      background
     }
 
+    setIsSubmitting(true)
     const result = await createAccount(payload)
     if (result.success) {
       setStatus({ type: "success", message: "Account added successfully." })
@@ -131,11 +173,12 @@ export function AddAccountDialog({
     } else {
       setStatus({ type: "error", message: result.error })
     }
+    setIsSubmitting(false)
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[560px]">
+      <DialogContent className="w-full max-w-[95vw] sm:max-w-[560px]">
         <DialogHeader>
           <DialogTitle>Add New Account</DialogTitle>
           <DialogDescription>
@@ -305,6 +348,26 @@ export function AddAccountDialog({
             </Select>
           </div>
 
+          <div className="grid gap-2">
+            <Label htmlFor="background">Background Color</Label>
+            <Select
+              name="background"
+              value={background}
+              onValueChange={setBackground}
+            >
+              <SelectTrigger id="background">
+                <SelectValue placeholder="Select background type" />
+              </SelectTrigger>
+              <SelectContent>
+                {BACKGROUND.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>
+                    {t.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="flex items-center space-x-2 sm:col-span-2">
             <Checkbox
               id="hide-contents"
@@ -321,11 +384,13 @@ export function AddAccountDialog({
             </Label>
           </div>
 
-          <DialogFooter className="mt-2 gap-2 sm:col-span-2 sm:flex-row sm:justify-end">
-            <Button type="button" variant="outline" onClick={handleCancel}>
+          <DialogFooter className="mt-2 flex flex-col gap-2 sm:col-span-2 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" onClick={handleCancel} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button type="submit">Add Account</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Adding..." : "Add Account"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

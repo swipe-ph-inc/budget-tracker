@@ -8,6 +8,13 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Pencil,
+  Trash,
+  Check,
+  X,
+  CircleCheck,
+  CircleX,
+  ShieldOff,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -20,7 +27,12 @@ import {
 } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { AddAccountDialog } from "@/components/account/add-account-dialog"
-import { getAccounts } from "@/app/actions/accounts"
+import {
+  UpdateAccountDialog,
+  type UpdateAccountInitialValues,
+} from "@/components/account/update-account-dialog"
+import { TopUpAccountDialog } from "@/components/account/top-up-account-dialog"
+import { getAccounts, deactivateAccount, deleteAccount } from "@/app/actions/accounts"
 import type { Database } from "@/lib/supabase/database.types"
 import { toast } from "@/hooks/use-toast"
 
@@ -41,6 +53,10 @@ type CardTypes = {
   masked_identifier: string
   variant: "light" | "dark"
   displayName?: string[]
+  bankName: string | null
+  backgroundImg: string | null
+  isActive: boolean
+  isDeactivated: boolean | null
 }
 
 /** Format a digit/asterisk string with a space every 4 characters (e.g. "12345678" → "1234 5678"). */
@@ -71,6 +87,7 @@ function transformAccountToCards(accounts: AccountRow[]): CardTypes[] {
     return {
       id: acc.id,
       name: acc.name,
+      bankName: acc.bank_name,
       type: acc.account_type.charAt(0).toUpperCase() + acc.account_type.slice(1).replace("_", " "),
       badge,
       balance: balanceFormatted,
@@ -81,6 +98,9 @@ function transformAccountToCards(accounts: AccountRow[]): CardTypes[] {
       currency: acc.currency || "PHP",
       masked_identifier: acc.masked_identifier,
       variant: i % 2 === 0 ? "light" : "dark",
+      backgroundImg: acc.background_img_url,
+      isActive: acc.is_active,
+      isDeactivated: acc.is_deleted
     }
   })
 }
@@ -216,6 +236,11 @@ export default function AccountPage() {
   const [cards, setCards] = useState<CardTypes[] | undefined>();
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [addAccountOpen, setAddAccountOpen] = useState(false)
+  const [topUpOpen, setTopUpOpen] = useState(false)
+  const [updateAccountOpen, setUpdateAccountOpen] = useState(false)
+  const [updateAccountId, setUpdateAccountId] = useState<string | null>(null)
+  const [updateInitialValues, setUpdateInitialValues] =
+    useState<UpdateAccountInitialValues | null>(null)
   const trackRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -223,23 +248,24 @@ export default function AccountPage() {
   const selectedCard = cardsList[selectedIndex]
   const totalCards = cardsList.length
 
-  useEffect(() => {
-    const fetchAccounts = async () => {
-      try {
-        const result = await getAccounts()
-        setAccounts(result ?? [])
-      } catch {
-        const t = toast({
-          title: "Failed to load accounts",
-          description: "There was a problem fetching your accounts. Please try again.",
-          variant: "destructive",
-        })
-        setAccounts([])
-        setTimeout(() => t.dismiss(), 5000)
-      }
+  const fetchAccounts = useCallback(async () => {
+    try {
+      const result = await getAccounts()
+      setAccounts(result ?? [])
+    } catch {
+      const t = toast({
+        title: "Failed to load accounts",
+        description: "There was a problem fetching your accounts. Please try again.",
+        variant: "destructive",
+      })
+      setAccounts([])
+      setTimeout(() => t.dismiss(), 5000)
     }
-    fetchAccounts()
   }, [])
+
+  useEffect(() => {
+    fetchAccounts()
+  }, [fetchAccounts])
 
   useEffect(() => {
     if (accounts === undefined) return
@@ -291,6 +317,29 @@ export default function AccountPage() {
         open={addAccountOpen}
         onOpenChange={setAddAccountOpen}
       />
+      {selectedCard && (
+        <TopUpAccountDialog
+          open={topUpOpen}
+          onOpenChange={setTopUpOpen}
+          accountId={selectedCard.id}
+          accountName={
+            selectedCard.displayName
+              ? selectedCard.displayName.join(" ")
+              : selectedCard.name
+          }
+          currency={selectedCard.currency}
+          onCompleted={fetchAccounts}
+        />
+      )}
+      {updateAccountId && updateInitialValues && (
+        <UpdateAccountDialog
+          open={updateAccountOpen}
+          onOpenChange={setUpdateAccountOpen}
+          accountId={updateAccountId}
+          initialValues={updateInitialValues}
+          onUpdated={fetchAccounts}
+        />
+      )}
       <div className="flex-1 overflow-y-auto p-4 lg:p-6">
         {/* ========== CAROUSEL AT TOP ========== */}
         <div className="rounded-xl border border-border bg-card p-4 lg:p-6">
@@ -338,86 +387,75 @@ export default function AccountPage() {
                       boxShadow: isCenter
                         ? "0 10px 40px -10px rgba(0,0,0,0.25), 0 4px 15px -4px rgba(0,0,0,0.15)"
                         : "0 4px 12px -4px rgba(0,0,0,0.15)",
-                      background: isDark
-                        ? "hsl(150, 25%, 18%)"
-                        : "hsl(0, 0%, 100%)",
-                      borderColor: isCenter ? "hsl(var(--primary))" : "hsl(var(--border))",
-                      color: isDark ? "hsl(0, 0%, 100%)" : "hsl(var(--card-foreground))",
                     }}
                   >
-                    <div className="flex h-full flex-col justify-between p-4">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          {card.displayName ? (
-                            <div
-                              className={
-                                isDark
-                                  ? "text-[hsl(0,0%,100%)]/70"
-                                  : "text-muted-foreground"
-                              }
-                            >
-                              {card.displayName.map((line, idx) => (
-                                <span key={idx} className="block text-xs leading-tight">
-                                  {line}
-                                </span>
-                              ))}
-                            </div>
-                          ) : (
-                            <p
-                              className={
-                                isDark
-                                  ? "text-xs text-[hsl(0,0%,100%)]/70"
-                                  : "text-xs text-muted-foreground"
-                              }
-                            >
-                              {card.name}
+                    <div
+                      className={`relative h-full w-full overflow-hidden rounded-2xl text-white shadow-2xl transition-transform ${isDark ? "bg-emerald-900" : "bg-red-100"
+                        }`}
+                    >
+                      <img
+                        className="absolute inset-0 h-full w-full object-cover"
+                        src="https://i.imgur.com/kGkSg1v.png"
+                        alt=""
+                      />
+                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-black/40 via-black/10 to-black/60" />
+
+                      <div className="relative flex h-full flex-col justify-between px-6 pt-4 pb-5">
+                        <div className="flex justify-between">
+                          <div>
+                            <p className="text-[11px] font-light tracking-wide text-white/80">
+                              Name
                             </p>
-                          )}
+                            <p className="mt-1 text-sm font-medium tracking-[0.15em]">
+                              {card.displayName
+                                ? card.displayName.join(" ")
+                                : card.name}
+                            </p>
+                          </div>
+                          <img
+                            className="h-12 w-12"
+                            src="https://i.imgur.com/bbPHJVe.png"
+                            alt=""
+                          />
                         </div>
-                        <div className="flex items-center gap-1">
-                          {card.badge ? (
-                            <span className="text-lg font-bold italic tracking-wider text-primary">
-                              {card.badge}
-                            </span>
-                          ) : (
-                            <div className="flex">
-                              <span
-                                className={`h-5 w-5 rounded-full ${isDark
-                                  ? "bg-[hsl(145,50%,45%)]/70"
-                                  : "bg-[hsl(145,50%,50%)]/50"
-                                  }`}
-                              />
-                              <span
-                                className={`-ml-2.5 h-5 w-5 rounded-full ${isDark
-                                  ? "bg-[hsl(145,30%,65%)]/50"
-                                  : "bg-[hsl(145,30%,70%)]/40"
-                                  }`}
-                              />
+
+                        <div className="pt-2">
+                          <p className="text-[11px] font-light tracking-wide text-white/80">
+                            Card Number
+                          </p>
+                          <p className="mt-1 text-sm font-medium tracking-[0.2em]">
+                            {card.maskedNumber || card.number}
+                          </p>
+                        </div>
+
+                        <div className="pt-4 pr-4">
+                          <div className="flex justify-between">
+                            <div>
+                              <p className="text-[10px] font-light text-white/80">
+                                Valid
+                              </p>
+                              <p className="mt-1 text-xs font-medium tracking-[0.2em]">
+                                {card.exp}
+                              </p>
                             </div>
-                          )}
+                            <div>
+                              <p className="text-[10px] font-light text-white/80">
+                                Expiry
+                              </p>
+                              <p className="mt-1 text-xs font-medium tracking-[0.2em]">
+                                {card.exp}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-light text-white/80">
+                                CVV
+                              </p>
+                              <p className="mt-1 text-xs font-bold tracking-[0.3em]">
+                                {card.cvv || "···"}
+                              </p>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-end justify-between">
-                        <p className="text-xl font-bold">{card.balance}</p>
-                        <span
-                          className={
-                            isDark
-                              ? "text-sm font-medium text-[hsl(0,0%,100%)]/80"
-                              : "text-sm font-medium text-muted-foreground"
-                          }
-                        >
-                          {card.type}
-                        </span>
-                      </div>
-                      <div
-                        className={
-                          isDark
-                            ? "flex items-center justify-between text-xs text-[hsl(0,0%,100%)]/60"
-                            : "flex items-center justify-between text-xs text-muted-foreground"
-                        }
-                      >
-                        <span className="font-medium">{card.maskedNumber}</span>
-                        <span>EXP {card.exp}</span>
                       </div>
                     </div>
                   </button>
@@ -454,55 +492,181 @@ export default function AccountPage() {
           <div className="mt-6 border-t border-border pt-6">
             {selectedCard ? (
               <>
-            <p className="text-xs text-muted-foreground">Total Balance</p>
-            <div className="flex items-center justify-start gap-3">
-              <p className="mt-1 mr-[8.5rem] text-xl font-bold text-card-foreground lg:text-2xl">
-                {selectedCard.balance}
-              </p>
-              <div className="flex items-center gap-2">
-                {[
-                  { icon: Plus, label: "Top Up" },
-                  { icon: ArrowUpDown, label: "Transfer" },
-                  { icon: DollarSign, label: "Payment" },
-                ].map((action) => (
-                  <button
-                    key={action.label}
-                    type="button"
-                    title={action.label}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded border border-border bg-muted/50 text-foreground transition-colors hover:bg-accent"
-                  >
-                    <action.icon className="h-3.5 w-3.5" aria-hidden />
-                    <span className="sr-only">{action.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="mt-5 flex flex-wrap items-center gap-6 gap-y-4 lg:gap-8">
-              <div>
-                <p className="text-xs text-muted-foreground">Account Name</p>
-                <p className="mt-1 text-sm font-bold text-card-foreground">
-                  {selectedCard.displayName ? selectedCard.displayName.join(" ") : selectedCard.name}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Account Type</p>
-                <p className="mt-1 text-sm font-bold text-card-foreground">
-                  {selectedCard.type}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Currency</p>
-                <p className="mt-1 text-sm font-bold text-card-foreground">
-                  {selectedCard.currency}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Bank</p>
-                <p className="mt-1 text-sm font-bold text-card-foreground">
-                  {selectedCard.masked_identifier}
-                </p>
-              </div>
-            </div>
+                <p className="text-xs text-muted-foreground">Total Balance</p>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="mt-1 text-xl font-bold text-card-foreground lg:text-2xl">
+                    {selectedCard.balance}
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 sm:mt-0 sm:justify-end">
+                    {[
+                      { icon: Plus, label: "Top Up" },
+                      { icon: ArrowUpDown, label: "Transfer" },
+                      { icon: DollarSign, label: "Payment" },
+                    ].map((action) => {
+                      const isTopUp = action.label === "Top Up"
+                      const handleClick = () => {
+                        if (!selectedCard) return
+                        if (isTopUp) {
+                          setTopUpOpen(true)
+                        }
+                      }
+                      return (
+                        <button
+                          key={action.label}
+                          type="button"
+                          title={action.label}
+                          onClick={handleClick}
+                          className="flex-1 flex h-9 items-center justify-center gap-1 rounded border border-border bg-muted/50 px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+                        >
+                          <action.icon className="h-3.5 w-3.5" aria-hidden />
+                          <span>{action.label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+                <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-6 sm:gap-y-4 lg:gap-8">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Account Name</p>
+                    <p className="mt-1 text-sm font-bold text-card-foreground">
+                      {selectedCard.displayName ? selectedCard.displayName.join(" ") : selectedCard.name}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Account Type</p>
+                    <p className="mt-1 text-sm font-bold text-card-foreground">
+                      {selectedCard.type}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Account Number</p>
+                    <p className="mt-1 text-sm font-bold text-card-foreground">
+                      {selectedCard.number}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Currency</p>
+                    <p className="mt-1 text-sm font-bold text-card-foreground">
+                      {selectedCard.currency}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Bank</p>
+                    <p className="mt-1 text-sm font-bold text-card-foreground">
+                      {selectedCard.bankName}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Acitive</p>
+                    <p className="mt-1 flex items-center gap-1 text-sm font-bold text-card-foreground">
+                      {selectedCard.isActive ? (
+                        <>
+                          <CircleCheck className="h-4 w-4 text-green-500" aria-label="Active" />
+                          <span className="text-green-500">ACTIVE</span>
+                        </>
+                      ) : (
+                        <>
+                          <CircleX className="h-4 w-4 text-red-500" aria-label="Inactive" />
+                          <span className="text-red-500">INACTIVE</span>
+                        </>
+                      )}
+                    </p>
+                  </div>
+                  <div className="mt-2 flex w-full flex-wrap justify-between gap-2 sm:mt-0 sm:w-auto sm:flex-1 sm:justify-end">
+                    {[
+                      { icon: Pencil, label: "Update Account" },
+                      { icon: ShieldOff, label: "Deactivate Account" },
+                      { icon: Trash, label: "Delete Account" },
+                    ].map((action) => {
+                      const isDelete = action.label === "Delete Account";
+                      const isUpdate = action.label === "Update Account";
+                      const isDeactivate = action.label === "Deactivate Account";
+                      const handleClick = async () => {
+                        if (!selectedCard || !accounts) return;
+
+                        if (isUpdate) {
+                          const selectedAccount = accounts.find(
+                            (acc) => acc.id === selectedCard.id,
+                          );
+                          if (!selectedAccount) return;
+
+                          const formattedBalance = new Intl.NumberFormat(
+                            undefined,
+                            {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            },
+                          ).format(selectedAccount.balance ?? 0);
+
+                          setUpdateAccountId(selectedAccount.id);
+                          setUpdateInitialValues({
+                            accountName: selectedAccount.name ?? "",
+                            bankName: selectedAccount.bank_name,
+                            maskedIdentifier:
+                              selectedAccount.masked_identifier ?? "",
+                            totalBalance: formattedBalance,
+                            currency: selectedAccount.currency || "PHP",
+                            accountType:
+                              selectedAccount.account_type as UpdateAccountInitialValues["accountType"],
+                          });
+                          setUpdateAccountOpen(true);
+                          return;
+                        }
+
+                        if (isDeactivate) {
+                          const result = await deactivateAccount(selectedCard.id);
+                          if (result.success) {
+                            toast({
+                              title: "Account deactivated",
+                              description: result.message,
+                            });
+                            fetchAccounts();
+                          } else {
+                            toast({
+                              title: "Failed to deactivate account",
+                              description: result.error,
+                              variant: "destructive",
+                            });
+                          }
+                          return;
+                        }
+
+                        if (isDelete) {
+                          const result = await deleteAccount(selectedCard.id);
+                          if (result.success) {
+                            toast({
+                              title: "Account deleted",
+                              description: result.message,
+                            });
+                            fetchAccounts();
+                          } else {
+                            toast({
+                              title: "Failed to delete account",
+                              description: result.error,
+                              variant: "destructive",
+                            });
+                          }
+                        }
+                      };
+                      return (
+                        <button
+                          key={action.label}
+                          type="button"
+                          title={action.label}
+                          onClick={handleClick}
+                          className={
+                            isDelete
+                              ? "flex-1 flex h-9 items-center justify-center gap-1 rounded border border-destructive bg-destructive px-3 text-xs font-medium text-destructive-foreground transition-colors hover:bg-destructive/80"
+                              : "flex-1 flex h-9 items-center justify-center gap-1 rounded border border-border bg-muted/50 px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+                          }
+                        >
+                          <action.icon className="h-3.5 w-3.5" aria-hidden />
+                          <span>{action.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </>
             ) : (
               <p className="text-sm text-muted-foreground">No account selected. Add an account to get started.</p>
