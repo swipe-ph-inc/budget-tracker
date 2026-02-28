@@ -17,14 +17,6 @@ import {
   ShieldOff,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import {
-  BookOpen,
-  Tv,
-  Briefcase,
-  ShoppingCart,
-  Dumbbell,
-  Zap,
-} from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { AddAccountDialog } from "@/components/account/add-account-dialog"
 import {
@@ -32,7 +24,13 @@ import {
   type UpdateAccountInitialValues,
 } from "@/components/account/update-account-dialog"
 import { TopUpAccountDialog } from "@/components/account/top-up-account-dialog"
+import { TransferAccountDialog } from "@/components/account/transfer-account-dialog"
+import { PaymentAccountDialog } from "@/components/account/payment-account-dialog"
 import { getAccounts, deactivateAccount, deleteAccount } from "@/app/actions/accounts"
+import {
+  getAccountTransactions,
+  type AccountTransaction,
+} from "@/app/actions/transaction"
 import type { Database } from "@/lib/supabase/database.types"
 import { toast } from "@/hooks/use-toast"
 
@@ -105,127 +103,41 @@ function transformAccountToCards(accounts: AccountRow[]): CardTypes[] {
   })
 }
 
-// const cards = [
-//   {
-//     id: "0",
-//     name: "Platinum Plus Visa",
-//     type: "Debit",
-//     badge: "VISA",
-//     balance: "$415,000",
-//     number: "5582 5574 8376 9967",
-//     maskedNumber: "**** **** **** 9967",
-//     exp: "12/29",
-//     cvv: "313",
-//     currency: "USD",
-//     masked_identifier: "BPI",
-//     variant: "light" as const,
-//   },
-//   {
-//     id: "1",
-//     name: "Freedom Unlimited\nMastercard",
-//     displayName: ["Freedom Unlimited", "Mastercard"],
-//     type: "Credit",
-//     badge: null,
-//     balance: "$532,000",
-//     number: "5582 5574 8376 5487",
-//     maskedNumber: "**** **** **** 5487",
-//     exp: "05/25",
-//     cvv: "411",
-//     currency: "USD",
-//     masked_identifier: "Metrobank",
-//     variant: "dark" as const,
-//   },
-//   {
-//     id: "2",
-//     name: "Elite Traveler\nMastercard",
-//     displayName: ["Elite Traveler", "Mastercard"],
-//     type: "Credit",
-//     badge: null,
-//     balance: "$430,000",
-//     number: "5582 5574 8376 3321",
-//     maskedNumber: "**** **** **** 3321",
-//     exp: "08/29",
-//     cvv: "672",
-//     currency: "PHP",
-//     masked_identifier: "BDO",
-//     variant: "light" as const,
-//   },
-// ]
+/** Map AccountTransaction to display row for the transactions table */
+function mapTransactionToRow(tx: AccountTransaction) {
+  const d = tx.date ? new Date(tx.date) : null
+  const dateStr = d ? d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "—"
+  const timeStr = d ? d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) : "—"
+  const amountFormatted = new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: tx.currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(tx.amount)
+  const amountDisplay = tx.direction === "in" ? `+${amountFormatted}` : amountFormatted
+  const name = tx.type === "payment"
+    ? "Payment"
+    : tx.direction === "in"
+      ? "Transfer In"
+      : "Transfer Out"
+  const category = tx.type === "payment" ? "Payment" : "Transfer"
+  const statusDisplay =
+    tx.status.charAt(0).toUpperCase() + tx.status.slice(1).toLowerCase()
 
-const cardTransactions = [
-  {
-    name: "Book Royalties",
-    category: "Income",
-    icon: BookOpen,
-    txId: "4567890139",
-    date: "2028-09-25",
-    time: "11:00 AM",
-    amount: "+$400.00",
-    isIncome: true,
-    note: "Royalties from published book",
-    status: "Completed",
-  },
-  {
-    name: "Comcast Bill Payment",
-    category: "Utilities",
-    icon: Tv,
-    txId: "4567890123",
-    date: "2028-09-24",
-    time: "10:30 AM",
-    amount: "$150.00",
-    isIncome: false,
-    note: "Monthly internet and TV bill",
-    status: "Completed",
-  },
-  {
-    name: "Consulting Fee",
-    category: "Services",
-    icon: Briefcase,
-    txId: "4567890140",
-    date: "2028-09-24",
-    time: "02:00 PM",
-    amount: "+$1,500.00",
-    isIncome: true,
-    note: "Payment for consulting services",
-    status: "Completed",
-  },
-  {
-    name: "Amazon Purchase",
-    category: "Food & Dining",
-    icon: ShoppingCart,
-    txId: "4567890124",
-    date: "2028-09-23",
-    time: "03:45 PM",
-    amount: "$80.95",
-    isIncome: false,
-    note: "Purchased kitchen appliances",
-    status: "Completed",
-  },
-  {
-    name: "Gym Membership",
-    category: "Healthcare",
-    icon: Dumbbell,
-    txId: "4567890125",
-    date: "2028-09-22",
-    time: "07:00 AM",
-    amount: "$45.00",
-    isIncome: false,
-    note: "Monthly gym fee for health",
-    status: "Completed",
-  },
-  {
-    name: "Electricity Bill",
-    category: "Utilities",
-    icon: Zap,
-    txId: "4567890128",
-    date: "2028-09-19",
-    time: "08:20 AM",
-    amount: "$70.00",
-    isIncome: false,
-    note: "Home electricity bill",
-    status: "Pending",
-  },
-]
+  return {
+    id: tx.id,
+    name,
+    category,
+    icon: tx.type === "payment" ? DollarSign : ArrowUpDown,
+    txId: tx.id.slice(0, 8),
+    date: dateStr,
+    time: timeStr,
+    amount: amountDisplay,
+    isIncome: tx.direction === "in",
+    note: tx.note ?? "",
+    status: statusDisplay,
+  }
+}
 
 const CARD_WIDTH_PX = 280
 const CARD_HEIGHT_PX = 176
@@ -237,10 +149,14 @@ export default function AccountPage() {
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [addAccountOpen, setAddAccountOpen] = useState(false)
   const [topUpOpen, setTopUpOpen] = useState(false)
+  const [transferOpen, setTransferOpen] = useState(false)
+  const [paymentOpen, setPaymentOpen] = useState(false)
   const [updateAccountOpen, setUpdateAccountOpen] = useState(false)
   const [updateAccountId, setUpdateAccountId] = useState<string | null>(null)
   const [updateInitialValues, setUpdateInitialValues] =
     useState<UpdateAccountInitialValues | null>(null)
+  const [transactions, setTransactions] = useState<AccountTransaction[]>([])
+  const [transactionsLoading, setTransactionsLoading] = useState(false)
   const trackRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -273,6 +189,31 @@ export default function AccountPage() {
     setCards(nextCards)
     setSelectedIndex((i) => (nextCards.length ? Math.min(i, nextCards.length - 1) : 0))
   }, [accounts])
+
+  const fetchTransactions = useCallback(async () => {
+    if (!selectedCard?.id) {
+      setTransactions([])
+      return
+    }
+    setTransactionsLoading(true)
+    try {
+      const data = await getAccountTransactions(selectedCard.id)
+      setTransactions(data)
+    } catch {
+      setTransactions([])
+    } finally {
+      setTransactionsLoading(false)
+    }
+  }, [selectedCard?.id])
+
+  useEffect(() => {
+    fetchTransactions()
+  }, [fetchTransactions])
+
+  const refreshAfterMutation = useCallback(() => {
+    fetchAccounts()
+    fetchTransactions()
+  }, [fetchAccounts, fetchTransactions])
 
   const updateTrackTransform = useCallback(() => {
     if (!containerRef.current || !trackRef.current) return
@@ -316,6 +257,7 @@ export default function AccountPage() {
       <AddAccountDialog
         open={addAccountOpen}
         onOpenChange={setAddAccountOpen}
+        onCompleted={fetchAccounts}
       />
       {selectedCard && (
         <TopUpAccountDialog
@@ -328,16 +270,40 @@ export default function AccountPage() {
               : selectedCard.name
           }
           currency={selectedCard.currency}
-          onCompleted={fetchAccounts}
+          onCompleted={refreshAfterMutation}
         />
       )}
+      <TransferAccountDialog
+        open={transferOpen}
+        onOpenChange={setTransferOpen}
+        accounts={(accounts ?? []).map((a) => ({
+          id: a.id,
+          name: a.name,
+          balance: a.balance ?? 0,
+          currency: a.currency ?? "PHP",
+        }))}
+        selectedAccountId={selectedCard?.id}
+        onCompleted={refreshAfterMutation}
+      />
+      <PaymentAccountDialog
+        open={paymentOpen}
+        onOpenChange={setPaymentOpen}
+        accounts={(accounts ?? []).map((a) => ({
+          id: a.id,
+          name: a.name,
+          balance: a.balance ?? 0,
+          currency: a.currency ?? "PHP",
+        }))}
+        selectedAccountId={selectedCard?.id}
+        onCompleted={refreshAfterMutation}
+      />
       {updateAccountId && updateInitialValues && (
         <UpdateAccountDialog
           open={updateAccountOpen}
           onOpenChange={setUpdateAccountOpen}
           accountId={updateAccountId}
           initialValues={updateInitialValues}
-          onUpdated={fetchAccounts}
+          onUpdated={refreshAfterMutation}
         />
       )}
       <div className="flex-1 overflow-y-auto p-4 lg:p-6">
@@ -504,10 +470,18 @@ export default function AccountPage() {
                       { icon: DollarSign, label: "Payment" },
                     ].map((action) => {
                       const isTopUp = action.label === "Top Up"
+                      const isTransfer = action.label === "Transfer"
+                      const isPayment = action.label === "Payment"
                       const handleClick = () => {
                         if (!selectedCard) return
                         if (isTopUp) {
                           setTopUpOpen(true)
+                        }
+                        if (isTransfer) {
+                          setTransferOpen(true)
+                        }
+                        if (isPayment) {
+                          setPaymentOpen(true)
                         }
                       }
                       return (
@@ -720,65 +694,93 @@ export default function AccountPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {cardTransactions.map((tx, i) => {
-                    const Icon = tx.icon
-                    return (
-                      <tr
-                        key={i}
-                        className="border-b border-border last:border-0 transition-colors hover:bg-muted/20"
+                  {transactionsLoading ? (
+                    <tr>
+                      <td
+                        colSpan={7}
+                        className="px-4 py-12 text-center text-sm text-muted-foreground lg:px-5"
                       >
-                        <td className="px-4 py-3.5 lg:px-5">
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 rounded border-input accent-primary"
-                          />
-                        </td>
-                        <td className="px-4 py-3.5 lg:px-5">
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent">
-                              <Icon className="h-4 w-4 text-accent-foreground" />
-                            </div>
-                            <div>
-                              <p className="font-medium text-card-foreground">
-                                {tx.name}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {tx.category}
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3.5 text-muted-foreground lg:px-5">
-                          {tx.txId}
-                        </td>
-                        <td className="px-4 py-3.5 lg:px-5">
-                          <p className="text-card-foreground">{tx.date}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {tx.time}
-                          </p>
-                        </td>
-                        <td
-                          className={`px-4 py-3.5 font-medium lg:px-5 ${tx.isIncome ? "text-primary" : "text-destructive"
-                            }`}
+                        Loading transactions...
+                      </td>
+                    </tr>
+                  ) : !selectedCard ? (
+                    <tr>
+                      <td
+                        colSpan={7}
+                        className="px-4 py-12 text-center text-sm text-muted-foreground lg:px-5"
+                      >
+                        Select an account to view transactions.
+                      </td>
+                    </tr>
+                  ) : transactions.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={7}
+                        className="px-4 py-12 text-center text-sm text-muted-foreground lg:px-5"
+                      >
+                        No transactions yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    transactions.map((tx) => {
+                      const row = mapTransactionToRow(tx)
+                      const Icon = row.icon
+                      return (
+                        <tr
+                          key={tx.id}
+                          className="border-b border-border last:border-0 transition-colors hover:bg-muted/20"
                         >
-                          {tx.amount}
-                        </td>
-                        <td className="max-w-[200px] truncate px-4 py-3.5 text-muted-foreground lg:px-5">
-                          {tx.note}
-                        </td>
-                        <td className="px-4 py-3.5 lg:px-5">
-                          <Badge
-                            className={`rounded-full px-3 py-1 text-xs font-medium ${tx.status === "Completed"
-                              ? "bg-primary/10 text-primary hover:bg-primary/10"
-                              : "bg-warning/10 text-warning hover:bg-warning/10"
-                              }`}
+                          <td className="px-4 py-3.5 lg:px-5">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-input accent-primary"
+                            />
+                          </td>
+                          <td className="px-4 py-3.5 lg:px-5">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent">
+                                <Icon className="h-4 w-4 text-accent-foreground" />
+                              </div>
+                              <div>
+                                <p className="font-medium text-card-foreground">
+                                  {row.name}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {row.category}
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3.5 text-muted-foreground lg:px-5">
+                            {row.txId}
+                          </td>
+                          <td className="px-4 py-3.5 lg:px-5">
+                            <p className="text-card-foreground">{row.date}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {row.time}
+                            </p>
+                          </td>
+                          <td
+                            className={`px-4 py-3.5 font-medium lg:px-5 ${row.isIncome ? "text-primary" : "text-destructive"}`}
                           >
-                            {tx.status}
-                          </Badge>
-                        </td>
-                      </tr>
-                    )
-                  })}
+                            {row.amount}
+                          </td>
+                          <td className="max-w-[200px] truncate px-4 py-3.5 text-muted-foreground lg:px-5">
+                            {row.note}
+                          </td>
+                          <td className="px-4 py-3.5 lg:px-5">
+                            <Badge
+                              className={`rounded-full px-3 py-1 text-xs font-medium ${row.status.toLowerCase() === "completed"
+                                ? "bg-primary/10 text-primary hover:bg-primary/10"
+                                : "bg-warning/10 text-warning hover:bg-warning/10"}`}
+                            >
+                              {row.status}
+                            </Badge>
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
                 </tbody>
               </table>
             </div>

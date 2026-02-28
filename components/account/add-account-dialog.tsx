@@ -67,6 +67,7 @@ export interface AddAccountFormValues {
 interface AddAccountDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onCompleted?: () => void
 }
 
 function generateMaskedIdentifier(): string {
@@ -107,6 +108,7 @@ function formatBalanceInput(value: string): string {
 export function AddAccountDialog({
   open,
   onOpenChange,
+  onCompleted,
 }: AddAccountDialogProps) {
   const [accountName, setAccountName] = useState<string>("")
   const [maskedIdentifier, setMaskedIdentifier] = useState<string>("")
@@ -166,6 +168,7 @@ export function AddAccountDialog({
     const result = await createAccount(payload)
     if (result.success) {
       setStatus({ type: "success", message: "Account added successfully." })
+      onCompleted?.()
       setTimeout(() => {
         onOpenChange(false)
         setStatus(null)

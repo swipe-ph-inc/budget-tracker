@@ -74,6 +74,7 @@ export async function createAccount(
         balance: parseBalance(values.totalBalance),
         hidden: values.isHidden,
         card_type: values.cardType === "none" ? "visa" : values.cardType,
+        background_img_url: values.background,
     }
     if (bankNameTrimmed != null) payload.bank_name = bankNameTrimmed
 
@@ -146,6 +147,8 @@ export async function getAccounts(): Promise<AccountRow[]> {
     const { data, error } = await supabase
         .from("account")
         .select("*")
+        .eq("is_deleted", false)
+        .eq("is_active", true)
         .order("created_at", { ascending: false })
 
     if (error) {
