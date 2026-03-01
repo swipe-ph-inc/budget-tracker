@@ -34,6 +34,88 @@ export async function getMerchants(): Promise<MerchantOption[]> {
   return data ?? []
 }
 
+export type RegisterMerchantCategoryResult =
+  | { success: true; data: { id: string } }
+  | { success: false; error: string }
+
+export async function registerMerchantCategory(
+  name: string
+): Promise<RegisterMerchantCategoryResult> {
+  const supabase = await createClient()
+  const trimmedName = name?.trim()
+  if (!trimmedName) {
+    return { success: false, error: "Category name is required." }
+  }
+
+  const { data, error } = await supabase
+    .from("merchant_category")
+    .insert({ name: trimmedName })
+    .select("id")
+    .single()
+
+  if (error) {
+    if (error.code === "23505") {
+      return { success: false, error: "A category with this name already exists." }
+    }
+    return { success: false, error: error.message }
+  }
+
+  return { success: true, data: { id: data.id } }
+}
+
+export type UpdateMerchantCategoryResult =
+  | { success: true }
+  | { success: false; error: string }
+
+export async function updateMerchantCategory(
+  id: string,
+  name: string
+): Promise<UpdateMerchantCategoryResult> {
+  const supabase = await createClient()
+  const trimmedName = name?.trim()
+  if (!trimmedName) {
+    return { success: false, error: "Category name is required." }
+  }
+
+  const { error } = await supabase
+    .from("merchant_category")
+    .update({ name: trimmedName })
+    .eq("id", id)
+
+  if (error) {
+    if (error.code === "23505") {
+      return { success: false, error: "A category with this name already exists." }
+    }
+    return { success: false, error: error.message }
+  }
+
+  return { success: true }
+}
+
+export type DeleteMerchantCategoryResult =
+  | { success: true }
+  | { success: false; error: string }
+
+export async function deleteMerchantCategory(
+  id: string
+): Promise<DeleteMerchantCategoryResult> {
+  const supabase = await createClient()
+
+  const { error } = await supabase.from("merchant_category").delete().eq("id", id)
+
+  if (error) {
+    if (error.code === "23503") {
+      return {
+        success: false,
+        error: "Cannot delete: merchants are using this category. Move or delete them first.",
+      }
+    }
+    return { success: false, error: error.message }
+  }
+
+  return { success: true }
+}
+
 export async function getMerchantCategories(): Promise<MerchantCategoryOption[]> {
   const supabase = await createClient()
   const { data, error } = await supabase

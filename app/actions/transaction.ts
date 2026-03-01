@@ -346,6 +346,8 @@ export type PaymentResult =
   | { success: true; data?: { paymentId: string } }
   | { success: false; error: string }
 
+type RecurrenceFrequency = Database["public"]["Enums"]["recurrence_frequency_enum"]
+
 export async function createPayment(params: {
   fromAccountId: string
   merchantId: string
@@ -355,6 +357,9 @@ export async function createPayment(params: {
   feeAmount?: number
   feeCurrency?: string | null
   dueDate?: string | null
+  virtualAccount?: string | null
+  isRecurring?: boolean
+  recurrenceFrequency?: RecurrenceFrequency | null
 }): Promise<PaymentResult> {
   const supabase = await createClient()
 
@@ -425,6 +430,7 @@ export async function createPayment(params: {
   }
 
   const now = new Date().toISOString()
+  const isRecurring = params.isRecurring ?? false
   const paymentPayload: PaymentInsert = {
     user_id: user.id,
     from_account_id: params.fromAccountId,
@@ -437,11 +443,11 @@ export async function createPayment(params: {
     paid_at: now,
     due_date: params.dueDate ?? null,
     note: params.note?.trim() || null,
-    is_recurring: false,
-    recurrence_frequency: null,
+    is_recurring: isRecurring,
+    recurrence_frequency: isRecurring ? (params.recurrenceFrequency ?? null) : null,
     invoice_id: null,
     from_credit_card_id: null,
-    virtual_account: null,
+    virtual_account: params.virtualAccount?.trim() || null,
   }
 
   const { data: payment, error: paymentError } = await supabase
@@ -758,6 +764,117 @@ export async function getTransfers(filters?: GetTransfersFilters): Promise<Trans
       feeAmount: t.fee_amount ?? 0,
       note: t.note,
       reference: t.reference,
+    }
+  })
+}
+
+export type PaymentListItem = {
+  id: string
+  amount: number
+  currency: string
+  status: string
+  merchantName: string
+  fromAccountName: string | null
+  fromAccountMasked: string | null
+  paidAt: string | null
+  createdAt: string
+  feeAmount: number
+  note: string | null
+  virtualAccount: string | null
+}
+
+export type GetPaymentsFilters = {
+  status?: string
+  fromAccountId?: string
+  merchantId?: string
+  dateFrom?: string
+  dateTo?: string
+}
+
+export async function getPayments(
+  filters?: GetPaymentsFilters
+): Promise<PaymentListItem[]> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return []
+  }
+
+  let query = supabase
+    .from("payment")
+    .select(`
+      id,
+      amount,
+      currency,
+      status,
+      paid_at,
+      created_at,
+      fee_amount,
+      note,
+      virtual_account,
+      merchant_id,
+      from_account_id,
+      merchant:merchant(name),
+      from_account:account!from_account_id(name, masked_identifier)
+    `)
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+
+  if (filters?.status && filters.status !== "all") {
+    query = query.eq(
+      "status",
+      filters.status as Database["public"]["Enums"]["transaction_status_enum"]
+    )
+  }
+  if (filters?.fromAccountId && filters.fromAccountId !== "all") {
+    query = query.eq("from_account_id", filters.fromAccountId)
+  }
+  if (filters?.merchantId && filters.merchantId !== "all") {
+    query = query.eq("merchant_id", filters.merchantId)
+  }
+  if (filters?.dateFrom) {
+    query = query.gte("created_at", filters.dateFrom)
+  }
+  if (filters?.dateTo) {
+    const endOfDay = new Date(filters.dateTo)
+    endOfDay.setHours(23, 59, 59, 999)
+    query = query.lte("created_at", endOfDay.toISOString())
+  }
+
+  const { data: payments, error } = await query
+
+  if (error) {
+    return []
+  }
+
+  return (payments ?? []).map((p) => {
+    const merchant = p.merchant as { name?: string } | null
+    const fromAccount = p.from_account as
+      | { name?: string; masked_identifier?: string }
+      | null
+    const statusDisplay =
+      (p.status ?? "pending")
+        .charAt(0)
+        .toUpperCase() + (p.status ?? "pending").slice(1).toLowerCase()
+
+    return {
+      id: p.id,
+      amount: p.amount,
+      currency: p.currency,
+      status: statusDisplay,
+      merchantName: merchant?.name ?? "—",
+      fromAccountName: fromAccount?.name ?? null,
+      fromAccountMasked: fromAccount?.masked_identifier ?? null,
+      paidAt: p.paid_at,
+      createdAt: p.created_at,
+      feeAmount: p.fee_amount ?? 0,
+      note: p.note,
+      virtualAccount: p.virtual_account,
     }
   })
 }
