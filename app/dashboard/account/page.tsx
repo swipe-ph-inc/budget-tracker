@@ -524,7 +524,7 @@ export default function AccountPage() {
                   <div>
                     <p className="text-xs text-muted-foreground">Account Number</p>
                     <p className="mt-1 text-sm font-bold text-card-foreground font-mono">
-                      {selectedCard.number}
+                      {selectedCard.maskedNumber}
                     </p>
                   </div>
                   <div>

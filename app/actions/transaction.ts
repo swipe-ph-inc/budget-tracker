@@ -220,6 +220,128 @@ export async function createTransfer(params: {
   return { success: true, data: { transferId: transfer.id } }
 }
 
+export type TransferToRecipientResult =
+  | { success: true; data?: { transferId: string } }
+  | { success: false; error: string }
+
+export async function createTransferToRecipient(params: {
+  fromAccountId: string
+  toRecipientId: string
+  amount: number
+  currency?: string
+  note?: string
+  reference?: string | null
+  transferMethod?: Database["public"]["Enums"]["transfer_method_enum"]
+  transferType?: Database["public"]["Enums"]["transfer_type_enum"]
+  feeAmount?: number
+  feeCurrency?: string | null
+}): Promise<TransferToRecipientResult> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return { success: false, error: "You must be signed in to transfer." }
+  }
+
+  if (!params.fromAccountId || !params.toRecipientId) {
+    return { success: false, error: "From account and recipient are required." }
+  }
+
+  if (!Number.isFinite(params.amount) || params.amount <= 0) {
+    return { success: false, error: "Amount must be greater than zero." }
+  }
+
+  const feeAmount = params.feeAmount ?? 0
+  const feeCurrency = params.feeCurrency ?? params.currency ?? "PHP"
+  const transferMethod = params.transferMethod ?? "instaPay"
+  const transferType = params.transferType ?? "local"
+
+  const { data: account, error: accountError } = await supabase
+    .from("account")
+    .select("id, balance, currency, user_id")
+    .eq("id", params.fromAccountId)
+    .single()
+
+  if (accountError || !account) {
+    return { success: false, error: "Account not found." }
+  }
+
+  if (account.user_id !== user.id) {
+    return { success: false, error: "You do not have access to this account." }
+  }
+
+  const { data: recipient, error: recipientError } = await supabase
+    .from("recipient")
+    .select("id, user_id")
+    .eq("id", params.toRecipientId)
+    .single()
+
+  if (recipientError || !recipient) {
+    return { success: false, error: "Recipient not found." }
+  }
+
+  if (recipient.user_id !== user.id) {
+    return { success: false, error: "You do not have access to this recipient." }
+  }
+
+  const currency = params.currency ?? account.currency ?? "PHP"
+  const totalDebit = params.amount + feeAmount
+
+  if ((account.balance ?? 0) < totalDebit) {
+    return { success: false, error: "Insufficient balance in the account." }
+  }
+
+  const newBalance = (account.balance ?? 0) - totalDebit
+
+  const { error: updateError } = await supabase
+    .from("account")
+    .update({ balance: newBalance })
+    .eq("id", params.fromAccountId)
+
+  if (updateError) {
+    return { success: false, error: updateError.message }
+  }
+
+  const now = new Date().toISOString()
+  const transferPayload: TransferInsert = {
+    user_id: user.id,
+    from_account_id: params.fromAccountId,
+    to_recipient_id: params.toRecipientId,
+    to_account_id: null,
+    amount: params.amount,
+    currency,
+    fee_amount: feeAmount,
+    fee_currency: feeAmount > 0 ? feeCurrency : null,
+    transfer_method: transferMethod,
+    transfer_type: transferType,
+    status: "completed",
+    note: params.note?.trim() || null,
+    reference: params.reference?.trim() || null,
+    completed_at: now,
+    scheduled_at: null,
+  }
+
+  const { data: transfer, error: transferError } = await supabase
+    .from("transfer")
+    .insert(transferPayload)
+    .select("id")
+    .single()
+
+  if (transferError) {
+    await supabase
+      .from("account")
+      .update({ balance: account.balance })
+      .eq("id", params.fromAccountId)
+    return { success: false, error: transferError.message }
+  }
+
+  return { success: true, data: { transferId: transfer.id } }
+}
+
 export type PaymentResult =
   | { success: true; data?: { paymentId: string } }
   | { success: false; error: string }
@@ -445,4 +567,197 @@ export async function getAccountTransactions(
   })
 
   return combined
+}
+
+export type RecentTransferItem = {
+  id: string
+  name: string
+  account: string
+  amount: number
+  currency: string
+  status: string
+}
+
+export async function getRecentTransfers(limit = 10): Promise<RecentTransferItem[]> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return []
+  }
+
+  const { data: transfers, error } = await supabase
+    .from("transfer")
+    .select(`
+      id,
+      amount,
+      currency,
+      status,
+      to_recipient_id,
+      to_account_id,
+      recipient(display_name, account_number),
+      to_account:account!to_account_id(name, masked_identifier)
+    `)
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(limit)
+
+  if (error) {
+    return []
+  }
+
+  return (transfers ?? []).map((t) => {
+    const recipient = t.recipient as { display_name?: string; account_number?: string } | null
+    const toAccount = t.to_account as { name?: string; masked_identifier?: string } | null
+    const name = t.to_recipient_id ? (recipient?.display_name ?? "—") : (toAccount?.name ?? "—")
+    const account = t.to_recipient_id ? (recipient?.account_number ?? "—") : (toAccount?.masked_identifier ?? "—")
+    const statusDisplay =
+      (t.status ?? "pending").charAt(0).toUpperCase() + (t.status ?? "pending").slice(1).toLowerCase()
+    return {
+      id: t.id,
+      name,
+      account,
+      amount: t.amount,
+      currency: t.currency,
+      status: statusDisplay,
+    }
+  })
+}
+
+export type TransferListItem = {
+  id: string
+  amount: number
+  currency: string
+  status: string
+  transferMethod: string
+  transferType: string
+  completedAt: string | null
+  createdAt: string
+  toName: string
+  toIdentifier: string
+  fromAccountName: string
+  fromAccountMasked: string
+  feeAmount: number
+  note: string | null
+  reference: string | null
+}
+
+export type GetTransfersFilters = {
+  status?: string
+  transferType?: string
+  transferMethod?: string
+  fromAccountId?: string
+  dateFrom?: string
+  dateTo?: string
+}
+
+export async function getTransfers(filters?: GetTransfersFilters): Promise<TransferListItem[]> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return []
+  }
+
+  let query = supabase
+    .from("transfer")
+    .select(`
+      id,
+      amount,
+      currency,
+      status,
+      transfer_method,
+      transfer_type,
+      completed_at,
+      created_at,
+      fee_amount,
+      note,
+      reference,
+      from_account_id,
+      to_recipient_id,
+      to_account_id,
+      from_account:account!from_account_id(name, masked_identifier),
+      recipient(display_name, account_number),
+      to_account:account!to_account_id(name, masked_identifier)
+    `)
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+
+  if (filters?.status && filters.status !== "all") {
+    query = query.eq(
+      "status",
+      filters.status as Database["public"]["Enums"]["transaction_status_enum"]
+    )
+  }
+  if (filters?.transferType && filters.transferType !== "all") {
+    query = query.eq(
+      "transfer_type",
+      filters.transferType as Database["public"]["Enums"]["transfer_type_enum"]
+    )
+  }
+  if (filters?.transferMethod && filters.transferMethod !== "all") {
+    query = query.eq(
+      "transfer_method",
+      filters.transferMethod as Database["public"]["Enums"]["transfer_method_enum"]
+    )
+  }
+  if (filters?.fromAccountId && filters.fromAccountId !== "all") {
+    query = query.eq("from_account_id", filters.fromAccountId)
+  }
+  if (filters?.dateFrom) {
+    query = query.gte("created_at", filters.dateFrom)
+  }
+  if (filters?.dateTo) {
+    const endOfDay = new Date(filters.dateTo)
+    endOfDay.setHours(23, 59, 59, 999)
+    query = query.lte("created_at", endOfDay.toISOString())
+  }
+
+  const { data: transfers, error } = await query
+
+  if (error) {
+    return []
+  }
+
+  return (transfers ?? []).map((t) => {
+    const recipient = t.recipient as { display_name?: string; account_number?: string } | null
+    const toAccount = t.to_account as { name?: string; masked_identifier?: string } | null
+    const fromAccount = t.from_account as { name?: string; masked_identifier?: string } | null
+    const toName = t.to_recipient_id ? (recipient?.display_name ?? "—") : (toAccount?.name ?? "—")
+    const toIdentifier = t.to_recipient_id ? (recipient?.account_number ?? "—") : (toAccount?.masked_identifier ?? "—")
+    const statusDisplay =
+      (t.status ?? "pending").charAt(0).toUpperCase() + (t.status ?? "pending").slice(1).toLowerCase()
+    const methodDisplay =
+      (t.transfer_method ?? "instaPay")
+        .replace(/([A-Z])/g, " $1")
+        .trim()
+    const typeDisplay =
+      (t.transfer_type ?? "local").charAt(0).toUpperCase() + (t.transfer_type ?? "local").slice(1)
+
+    return {
+      id: t.id,
+      amount: t.amount,
+      currency: t.currency,
+      status: statusDisplay,
+      transferMethod: methodDisplay,
+      transferType: typeDisplay,
+      completedAt: t.completed_at,
+      createdAt: t.created_at,
+      toName,
+      toIdentifier,
+      fromAccountName: fromAccount?.name ?? "—",
+      fromAccountMasked: fromAccount?.masked_identifier ?? "—",
+      feeAmount: t.fee_amount ?? 0,
+      note: t.note,
+      reference: t.reference,
+    }
+  })
 }
