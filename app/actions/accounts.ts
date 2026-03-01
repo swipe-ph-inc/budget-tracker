@@ -42,6 +42,7 @@ export async function createAccount(
         cardType: string
         isHidden: boolean
         background: string
+        cardNetworkUrl: string
     }
 ): Promise<CreateAccountResult> {
     const supabase = await createClient()
@@ -75,6 +76,7 @@ export async function createAccount(
         hidden: values.isHidden,
         card_type: values.cardType === "none" ? "visa" : values.cardType,
         background_img_url: values.background,
+        card_network_url: values.cardNetworkUrl
     }
     if (bankNameTrimmed != null) payload.bank_name = bankNameTrimmed
 

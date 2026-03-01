@@ -10,11 +10,10 @@ import {
   ChevronRight,
   Pencil,
   Trash,
-  Check,
-  X,
   CircleCheck,
   CircleX,
   ShieldOff,
+  Store,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useCallback, useEffect, useRef, useState } from "react"
@@ -26,6 +25,7 @@ import {
 import { TopUpAccountDialog } from "@/components/account/top-up-account-dialog"
 import { TransferAccountDialog } from "@/components/account/transfer-account-dialog"
 import { PaymentAccountDialog } from "@/components/account/payment-account-dialog"
+import { ManageMerchantDialog } from "@/components/account/manage-merchant-dialog"
 import { getAccounts, deactivateAccount, deleteAccount } from "@/app/actions/accounts"
 import {
   getAccountTransactions,
@@ -52,9 +52,10 @@ type CardTypes = {
   variant: "light" | "dark"
   displayName?: string[]
   bankName: string | null
-  backgroundImg: string | null
+  backgroundImg: string | Blob | null | undefined
   isActive: boolean
   isDeactivated: boolean | null
+  cardType: string | null
 }
 
 /** Format a digit/asterisk string with a space every 4 characters (e.g. "12345678" → "1234 5678"). */
@@ -98,7 +99,8 @@ function transformAccountToCards(accounts: AccountRow[]): CardTypes[] {
       variant: i % 2 === 0 ? "light" : "dark",
       backgroundImg: acc.background_img_url,
       isActive: acc.is_active,
-      isDeactivated: acc.is_deleted
+      isDeactivated: acc.is_deleted,
+      cardType: acc.card_network_url
     }
   })
 }
@@ -155,6 +157,7 @@ export default function AccountPage() {
   const [updateAccountId, setUpdateAccountId] = useState<string | null>(null)
   const [updateInitialValues, setUpdateInitialValues] =
     useState<UpdateAccountInitialValues | null>(null)
+  const [manageMerchantOpen, setManageMerchantOpen] = useState(false)
   const [transactions, setTransactions] = useState<AccountTransaction[]>([])
   const [transactionsLoading, setTransactionsLoading] = useState(false)
   const trackRef = useRef<HTMLDivElement>(null)
@@ -306,6 +309,10 @@ export default function AccountPage() {
           onUpdated={refreshAfterMutation}
         />
       )}
+      <ManageMerchantDialog
+        open={manageMerchantOpen}
+        onOpenChange={setManageMerchantOpen}
+      />
       <div className="flex-1 overflow-y-auto p-4 lg:p-6">
         {/* ========== CAROUSEL AT TOP ========== */}
         <div className="rounded-xl border border-border bg-card p-4 lg:p-6">
@@ -361,26 +368,29 @@ export default function AccountPage() {
                     >
                       <img
                         className="absolute inset-0 h-full w-full object-cover"
-                        src="https://i.imgur.com/kGkSg1v.png"
+                        src={card.backgroundImg ?? "https://i.imgur.com/kGkSg1v.png"}
                         alt=""
                       />
                       <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-black/40 via-black/10 to-black/60" />
 
                       <div className="relative flex h-full flex-col justify-between px-6 pt-4 pb-5">
-                        <div className="flex justify-between">
-                          <div>
+                        <div className="flex min-w-0 justify-between gap-3">
+                          <div className="min-w-0 flex-1 overflow-hidden">
                             <p className="text-[11px] font-light tracking-wide text-white/80">
                               Name
                             </p>
-                            <p className="mt-1 text-sm font-medium tracking-[0.15em]">
+                            <p
+                              className="mt-1 truncate text-sm font-medium tracking-[0.15em]"
+                              title={card.displayName ? card.displayName.join(" ") : card.name}
+                            >
                               {card.displayName
                                 ? card.displayName.join(" ")
                                 : card.name}
                             </p>
                           </div>
                           <img
-                            className="h-12 w-12"
-                            src="https://i.imgur.com/bbPHJVe.png"
+                            className="h-12 w-12 shrink-0"
+                            src={card.cardType ?? "https://i.imgur.com/bbPHJVe.png"}
                             alt=""
                           />
                         </div>
@@ -457,13 +467,16 @@ export default function AccountPage() {
           {/* Card details + quick actions — same background as carousel above */}
           <div className="mt-6 border-t border-border pt-6">
             {selectedCard ? (
-              <>
-                <p className="text-xs text-muted-foreground">Total Balance</p>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="mt-1 text-xl font-bold text-card-foreground lg:text-2xl">
-                    {selectedCard.balance}
-                  </p>
-                  <div className="mt-2 flex flex-wrap items-center gap-2 sm:mt-0 sm:justify-end">
+              <div className="flex flex-col gap-6">
+                {/* Balance + Quick actions (money flow) */}
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Total Balance</p>
+                    <p className="mt-1 text-xl font-bold text-card-foreground lg:text-2xl">
+                      {selectedCard.balance}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2 sm:shrink-0">
                     {[
                       { icon: Plus, label: "Top Up" },
                       { icon: ArrowUpDown, label: "Transfer" },
@@ -474,15 +487,9 @@ export default function AccountPage() {
                       const isPayment = action.label === "Payment"
                       const handleClick = () => {
                         if (!selectedCard) return
-                        if (isTopUp) {
-                          setTopUpOpen(true)
-                        }
-                        if (isTransfer) {
-                          setTransferOpen(true)
-                        }
-                        if (isPayment) {
-                          setPaymentOpen(true)
-                        }
+                        if (isTopUp) setTopUpOpen(true)
+                        if (isTransfer) setTransferOpen(true)
+                        if (isPayment) setPaymentOpen(true)
                       }
                       return (
                         <button
@@ -490,7 +497,7 @@ export default function AccountPage() {
                           type="button"
                           title={action.label}
                           onClick={handleClick}
-                          className="flex-1 flex h-9 items-center justify-center gap-1 rounded border border-border bg-muted/50 px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+                          className="flex h-9 min-w-[88px] items-center justify-center gap-1.5 rounded-lg border border-border bg-muted/50 px-4 text-xs font-medium text-foreground transition-colors hover:bg-accent"
                         >
                           <action.icon className="h-3.5 w-3.5" aria-hidden />
                           <span>{action.label}</span>
@@ -499,7 +506,9 @@ export default function AccountPage() {
                     })}
                   </div>
                 </div>
-                <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-6 sm:gap-y-4 lg:gap-8">
+
+                {/* Account details grid */}
+                <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-6">
                   <div>
                     <p className="text-xs text-muted-foreground">Account Name</p>
                     <p className="mt-1 text-sm font-bold text-card-foreground">
@@ -514,7 +523,7 @@ export default function AccountPage() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Account Number</p>
-                    <p className="mt-1 text-sm font-bold text-card-foreground">
+                    <p className="mt-1 text-sm font-bold text-card-foreground font-mono">
                       {selectedCard.number}
                     </p>
                   </div>
@@ -531,117 +540,138 @@ export default function AccountPage() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Acitive</p>
-                    <p className="mt-1 flex items-center gap-1 text-sm font-bold text-card-foreground">
+                    <p className="text-xs text-muted-foreground">Status</p>
+                    <p className="mt-1 flex items-center gap-1.5 text-sm font-bold text-card-foreground">
                       {selectedCard.isActive ? (
                         <>
                           <CircleCheck className="h-4 w-4 text-green-500" aria-label="Active" />
-                          <span className="text-green-500">ACTIVE</span>
+                          <span className="text-green-500">Active</span>
                         </>
                       ) : (
                         <>
                           <CircleX className="h-4 w-4 text-red-500" aria-label="Inactive" />
-                          <span className="text-red-500">INACTIVE</span>
+                          <span className="text-red-500">Inactive</span>
                         </>
                       )}
                     </p>
                   </div>
-                  <div className="mt-2 flex w-full flex-wrap justify-between gap-2 sm:mt-0 sm:w-auto sm:flex-1 sm:justify-end">
-                    {[
-                      { icon: Pencil, label: "Update Account" },
-                      { icon: ShieldOff, label: "Deactivate Account" },
-                      { icon: Trash, label: "Delete Account" },
-                    ].map((action) => {
-                      const isDelete = action.label === "Delete Account";
-                      const isUpdate = action.label === "Update Account";
-                      const isDeactivate = action.label === "Deactivate Account";
-                      const handleClick = async () => {
-                        if (!selectedCard || !accounts) return;
+                </div>
 
-                        if (isUpdate) {
-                          const selectedAccount = accounts.find(
-                            (acc) => acc.id === selectedCard.id,
-                          );
-                          if (!selectedAccount) return;
+                {/* Manage account + Manage Merchant (side by side) */}
+                <div className="flex flex-col gap-4 border-t border-border pt-5 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs font-medium text-muted-foreground">Manage account</p>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { icon: Pencil, label: "Update" },
+                        { icon: ShieldOff, label: "Deactivate" },
+                        { icon: Trash, label: "Delete" },
+                      ].map((action) => {
+                        const isDelete = action.label === "Delete";
+                        const isUpdate = action.label === "Update";
+                        const isDeactivate = action.label === "Deactivate";
+                        const handleClick = async () => {
+                          if (!selectedCard || !accounts) return;
 
-                          const formattedBalance = new Intl.NumberFormat(
-                            undefined,
-                            {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            },
-                          ).format(selectedAccount.balance ?? 0);
+                          if (isUpdate) {
+                            const selectedAccount = accounts.find(
+                              (acc) => acc.id === selectedCard.id,
+                            );
+                            if (!selectedAccount) return;
 
-                          setUpdateAccountId(selectedAccount.id);
-                          setUpdateInitialValues({
-                            accountName: selectedAccount.name ?? "",
-                            bankName: selectedAccount.bank_name,
-                            maskedIdentifier:
-                              selectedAccount.masked_identifier ?? "",
-                            totalBalance: formattedBalance,
-                            currency: selectedAccount.currency || "PHP",
-                            accountType:
-                              selectedAccount.account_type as UpdateAccountInitialValues["accountType"],
-                          });
-                          setUpdateAccountOpen(true);
-                          return;
-                        }
+                            const formattedBalance = new Intl.NumberFormat(
+                              undefined,
+                              {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              },
+                            ).format(selectedAccount.balance ?? 0);
 
-                        if (isDeactivate) {
-                          const result = await deactivateAccount(selectedCard.id);
-                          if (result.success) {
-                            toast({
-                              title: "Account deactivated",
-                              description: result.message,
+                            setUpdateAccountId(selectedAccount.id);
+                            setUpdateInitialValues({
+                              accountName: selectedAccount.name ?? "",
+                              bankName: selectedAccount.bank_name,
+                              maskedIdentifier:
+                                selectedAccount.masked_identifier ?? "",
+                              totalBalance: formattedBalance,
+                              currency: selectedAccount.currency || "PHP",
+                              accountType:
+                                selectedAccount.account_type as UpdateAccountInitialValues["accountType"],
                             });
-                            fetchAccounts();
-                          } else {
-                            toast({
-                              title: "Failed to deactivate account",
-                              description: result.error,
-                              variant: "destructive",
-                            });
+                            setUpdateAccountOpen(true);
+                            return;
                           }
-                          return;
-                        }
 
-                        if (isDelete) {
-                          const result = await deleteAccount(selectedCard.id);
-                          if (result.success) {
-                            toast({
-                              title: "Account deleted",
-                              description: result.message,
-                            });
-                            fetchAccounts();
-                          } else {
-                            toast({
-                              title: "Failed to delete account",
-                              description: result.error,
-                              variant: "destructive",
-                            });
+                          if (isDeactivate) {
+                            const result = await deactivateAccount(selectedCard.id);
+                            if (result.success) {
+                              toast({
+                                title: "Account deactivated",
+                                description: result.message,
+                              });
+                              fetchAccounts();
+                            } else {
+                              toast({
+                                title: "Failed to deactivate account",
+                                description: result.error,
+                                variant: "destructive",
+                              });
+                            }
+                            return;
                           }
-                        }
-                      };
-                      return (
-                        <button
-                          key={action.label}
-                          type="button"
-                          title={action.label}
-                          onClick={handleClick}
-                          className={
-                            isDelete
-                              ? "flex-1 flex h-9 items-center justify-center gap-1 rounded border border-destructive bg-destructive px-3 text-xs font-medium text-destructive-foreground transition-colors hover:bg-destructive/80"
-                              : "flex-1 flex h-9 items-center justify-center gap-1 rounded border border-border bg-muted/50 px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+
+                          if (isDelete) {
+                            const result = await deleteAccount(selectedCard.id);
+                            if (result.success) {
+                              toast({
+                                title: "Account deleted",
+                                description: result.message,
+                              });
+                              fetchAccounts();
+                            } else {
+                              toast({
+                                title: "Failed to delete account",
+                                description: result.error,
+                                variant: "destructive",
+                              });
+                            }
                           }
-                        >
-                          <action.icon className="h-3.5 w-3.5" aria-hidden />
-                          <span>{action.label}</span>
-                        </button>
-                      );
-                    })}
+                        };
+                        return (
+                          <button
+                            key={action.label}
+                            type="button"
+                            title={action.label}
+                            onClick={handleClick}
+                            className={
+                              isDelete
+                                ? "flex h-9 items-center justify-center gap-1.5 rounded-lg border border-destructive bg-destructive px-4 text-xs font-medium text-destructive-foreground transition-colors hover:bg-destructive/80"
+                                : "flex h-9 items-center justify-center gap-1.5 rounded-lg border border-border bg-muted/50 px-4 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+                            }
+                          >
+                            <action.icon className="h-3.5 w-3.5" aria-hidden />
+                            <span>{action.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2 items-center text-right">
+                    <p className="text-xs font-medium text-muted-foreground">Manage Merchant</p>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        title="Show merchants"
+                        onClick={() => setManageMerchantOpen(true)}
+                        className="flex h-9 min-w-[88px] items-center justify-center gap-1.5 rounded-lg border border-border bg-muted/50 px-4 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+                      >
+                        <Store className="h-3.5 w-3.5" aria-hidden />
+                        <span>Show merchants</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </>
+              </div>
             ) : (
               <p className="text-sm text-muted-foreground">No account selected. Add an account to get started.</p>
             )}

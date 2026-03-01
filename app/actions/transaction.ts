@@ -3,12 +3,12 @@
 import { createClient } from "@/lib/supabase/server"
 import type { Database } from "@/lib/supabase/database.types"
 
-type ActivityInsert = Database["public"]["Tables"]["activity"]["Insert"]
+type IncomeInsert = Database["public"]["Tables"]["income"]["Insert"]
 type TransferInsert = Database["public"]["Tables"]["transfer"]["Insert"]
 type PaymentInsert = Database["public"]["Tables"]["payment"]["Insert"]
 
 export type TopUpResult =
-  | { success: true; data?: { activityId: string } }
+  | { success: true; data?: { incomeId: string } }
   | { success: false; error: string }
 
 export async function createTopUp(params: {
@@ -38,11 +38,9 @@ export async function createTopUp(params: {
 
   const currency = params.currency || "PHP"
 
-  // Wrap in a transaction-like flow using Postgrest: read, then update balance, then log activity.
-  // Note: In a real system you'd likely use database functions for true atomicity.
   const { data: account, error: accountError } = await supabase
     .from("account")
-    .select("id, balance, currency")
+    .select("id, user_id")
     .eq("id", params.accountId)
     .single()
 
@@ -50,46 +48,30 @@ export async function createTopUp(params: {
     return { success: false, error: "Account not found." }
   }
 
-  const nextBalance = (account.balance ?? 0) + params.amount
-
-  const { error: updateError } = await supabase
-    .from("account")
-    .update({
-      balance: nextBalance,
-    })
-    .eq("id", params.accountId)
-
-  if (updateError) {
-    return { success: false, error: updateError.message }
+  if (account.user_id !== user.id) {
+    return { success: false, error: "You do not have access to this account." }
   }
 
-  const activityPayload: ActivityInsert = {
+  const incomePayload: IncomeInsert = {
     user_id: user.id,
-    activity_type: "income",
+    account_id: params.accountId,
     amount: params.amount,
     currency,
-    summary: "Account top-up",
-    occurred_at: new Date().toISOString(),
-    reference_table: "account",
-    reference_id: params.accountId,
-    metadata: params.note
-      ? {
-          note: params.note,
-        }
-      : null,
+    source: "other",
+    note: params.note?.trim() || null,
   }
 
-  const { data: activity, error: activityError } = await supabase
-    .from("activity")
-    .insert(activityPayload)
+  const { data: income, error: incomeError } = await supabase
+    .from("income")
+    .insert(incomePayload)
     .select("id")
     .single()
 
-  if (activityError) {
-    return { success: false, error: activityError.message }
+  if (incomeError) {
+    return { success: false, error: incomeError.message }
   }
 
-  return { success: true, data: { activityId: activity.id } }
+  return { success: true, data: { incomeId: income.id } }
 }
 
 export type TransferResult =

@@ -42,13 +42,38 @@ export const CURRENCIES = [
 ] as const
 
 export const CARD_TYPES = [
-  { value: "visa", label: "Visa" },
-  { value: "mastercard", label: "Mastercard" },
-  { value: "amex", label: "American Express" },
-  { value: "none", label: "None" },
+  { value: "visa", label: "Visa", url: "https://wvjmbjyswzmfwrvzpsel.supabase.co/storage/v1/object/public/network-logo/Visa_Inc.-Logo.wine.svg"},
+  { value: "mastercard", label: "Mastercard", url: "https://wvjmbjyswzmfwrvzpsel.supabase.co/storage/v1/object/public/network-logo/ma_symbol.svg"},
+  { value: "jcb", label: "JCB (Japan Credit Bureau)", url: "https://wvjmbjyswzmfwrvzpsel.supabase.co/storage/v1/object/public/network-logo/jcb_logo_color.svg"},
+  { value: "amex", label: "American Express", url: "https://wvjmbjyswzmfwrvzpsel.supabase.co/storage/v1/object/public/network-logo/Amex_logo_color.svg"},
+  { value: "none", label: "None", url: ""},
 ] as const
 
 export const BACKGROUND = [
+  {
+    value: "https://images.unsplash.com/photo-1550684376-efcbd6e3f031?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+    label: "Black",
+  },
+  {
+    value: "https://plus.unsplash.com/premium_photo-1755192700987-cae26287e93c?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+    label: "Titanium",
+  },
+  {
+    value: "https://images.unsplash.com/photo-1664044020180-b75bfddf9776?q=80&w=3132&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+    label: "Diamond",
+  },
+  {
+    value: "https://images.unsplash.com/photo-1714548870002-d25e8329039c?q=80&w=3132&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+    label: "Platinum",
+  },
+  {
+    value: "https://images.unsplash.com/photo-1513346940221-6f673d962e97?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+    label: "Gold",
+  },
+  {
+    value: "https://images.unsplash.com/photo-1635151227785-429f420c6b9d?q=80&w=1964&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+    label: "Silver",
+  },
   { value: "https://i.imgur.com/kGkSg1v.png", label: "Blue" },
   { value: "https://i.imgur.com/Zi6v09P.png", label: "Orange" },
 ] as const
@@ -117,6 +142,7 @@ export function AddAccountDialog({
   const [currency, setCurrency] = useState<string>("PHP")
   const [accountType, setAccountType] = useState<string>("savings")
   const [cardType, setCardType] = useState<string>("none")
+  const [cardNetworkUrl, setCardNetworkUrl] = useState<string>("")
   const [background, setBackground] = useState<string>("")
   const [hideContents, setHideContents] = useState<boolean>(false)
   const [status, setStatus] = useState<
@@ -161,7 +187,8 @@ export function AddAccountDialog({
       accountType,
       cardType,
       isHidden: hideContents,
-      background
+      background,
+      cardNetworkUrl: CARD_TYPES.find((t) => t.value === cardType)?.url ?? "",
     }
 
     setIsSubmitting(true)
