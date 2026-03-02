@@ -2,11 +2,12 @@
 
 import Link from "next/link"
 import { TopHeader } from "@/components/top-header"
-import { Search, SlidersHorizontal, ArrowLeftRight, CreditCard, Plus, ChevronDown, MoreHorizontal, Copy, Globe, Tv, HeartPulse, ShoppingCart, Shield, FolderPlus, Store, FileDown, FileUp } from "lucide-react"
+import { Search, SlidersHorizontal, CreditCard, Plus, ChevronDown, MoreHorizontal, Copy, Globe, Tv, HeartPulse, ShoppingCart, Shield, FolderPlus, Store, FileDown, FileUp, CalendarRange, Calendar, WalletCards, Wallet } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useState, useCallback, useEffect } from "react"
 import { getAccounts } from "@/app/actions/accounts"
+import { getCreditCards } from "@/app/actions/credit-cards"
 import {
   getMerchantCategories,
   getMerchantsWithCategories,
@@ -26,6 +27,7 @@ import { ManageMerchantDialog } from "@/components/account/manage-merchant-dialo
 import { ManageMerchantCategoryDialog } from "@/components/payment/payment/manage-merchant-category-dialog"
 
 type AccountRow = Tables<"account">
+type CreditCardRow = Tables<"credit_card">
 type RecurrenceFrequency = "weekly" | "biweekly" | "monthly" | "quarterly" | "yearly"
 
 const RECURRENCE_OPTIONS: { value: RecurrenceFrequency; label: string }[] = [
@@ -45,6 +47,16 @@ function formatBalance(account: AccountRow): string {
   }).format(account.balance)
 }
 
+function formatAvailableCredit(card: CreditCardRow): string {
+  const available = (card.credit_limit ?? 0) - (card.balance_owed ?? 0)
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: card.currency || "PHP",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(available)
+}
+
 function formatAmountInput(value: string): string {
   if (!value) return ""
   const cleaned = value.replace(/[^\d.]/g, "")
@@ -54,10 +66,10 @@ function formatAmountInput(value: string): string {
 }
 
 const paymentTabs = [
-  { label: "Transfer", icon: ArrowLeftRight, href: "/dashboard/payments/transfer", active: false },
-  { label: "Payment", icon: CreditCard, href: "/dashboard/payments/payment", active: true },
-  { label: "Virtual Acc", icon: CreditCard, href: "#", active: false },
-  { label: "Top Up", icon: Plus, href: "#", active: false },
+  { label: "Payment", icon: WalletCards, href: "/dashboard/payments/payment", active: true },
+  { label: "Subscription Payment", icon: CalendarRange, href: "#", active: false },
+  { label: "Installment Payment", icon: Calendar, href: "#", active: false },
+  { label: "Credit Card Payment", icon: CreditCard, href: "#", active: false },
 ]
 
 const RECENT_PAYMENTS_LIMIT = 5
@@ -96,14 +108,18 @@ function getCategoryIcon(name: string) {
 export default function PaymentPage() {
   const [openCategoryId, setOpenCategoryId] = useState<string | null>(null)
   const [accounts, setAccounts] = useState<AccountRow[]>([])
+  const [creditCards, setCreditCards] = useState<CreditCardRow[]>([])
   const [categories, setCategories] = useState<MerchantCategoryOption[]>([])
   const [merchants, setMerchants] = useState<MerchantWithCategory[]>([])
   const [accountsLoading, setAccountsLoading] = useState(true)
+  const [creditCardsLoading, setCreditCardsLoading] = useState(true)
   const [merchantsLoading, setMerchantsLoading] = useState(true)
   const [recentPayments, setRecentPayments] = useState<PaymentListItem[]>([])
   const [recentPaymentsLoading, setRecentPaymentsLoading] = useState(true)
 
+  const [fundingSource, setFundingSource] = useState<"account" | "credit_card">("account")
   const [fromAccountId, setFromAccountId] = useState<string>("")
+  const [fromCreditCardId, setFromCreditCardId] = useState<string>("")
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("")
   const [merchantId, setMerchantId] = useState<string>("")
   const [amount, setAmount] = useState("")
@@ -120,7 +136,8 @@ export default function PaymentPage() {
   const [searchQuery, setSearchQuery] = useState("")
 
   const selectedAccount = accounts.find((a) => a.id === fromAccountId)
-  const currency = selectedAccount?.currency ?? "PHP"
+  const selectedCard = creditCards.find((c) => c.id === fromCreditCardId)
+  const currency = (fundingSource === "account" ? selectedAccount?.currency : selectedCard?.currency) ?? "PHP"
 
   const searchLower = searchQuery.trim().toLowerCase()
   const categoriesWithMerchants = categories.map((cat) => ({
@@ -129,16 +146,16 @@ export default function PaymentPage() {
   }))
   const filteredCategoriesWithMerchants = searchLower
     ? categoriesWithMerchants
-        .map((cat) => ({
-          ...cat,
-          merchants: cat.merchants.filter((m) =>
-            m.name.toLowerCase().includes(searchLower)
-          ),
-        }))
-        .filter(
-          (cat) =>
-            cat.name.toLowerCase().includes(searchLower) || cat.merchants.length > 0
-        )
+      .map((cat) => ({
+        ...cat,
+        merchants: cat.merchants.filter((m) =>
+          m.name.toLowerCase().includes(searchLower)
+        ),
+      }))
+      .filter(
+        (cat) =>
+          cat.name.toLowerCase().includes(searchLower) || cat.merchants.length > 0
+      )
     : categoriesWithMerchants
   const filteredMerchants = selectedCategoryId
     ? merchants.filter((m) => m.category_id === selectedCategoryId)
@@ -146,16 +163,19 @@ export default function PaymentPage() {
 
   const fetchData = useCallback(async () => {
     setAccountsLoading(true)
+    setCreditCardsLoading(true)
     setMerchantsLoading(true)
     setRecentPaymentsLoading(true)
     try {
-      const [accountsData, categoriesData, merchantsData, paymentsData] = await Promise.all([
+      const [accountsData, creditCardsData, categoriesData, merchantsData, paymentsData] = await Promise.all([
         getAccounts(),
+        getCreditCards(),
         getMerchantCategories(),
         getMerchantsWithCategories(),
         getPayments(),
       ])
       setAccounts(accountsData ?? [])
+      setCreditCards(creditCardsData ?? [])
       setCategories(categoriesData ?? [])
       setMerchants(merchantsData ?? [])
       setRecentPayments((paymentsData ?? []).slice(0, RECENT_PAYMENTS_LIMIT))
@@ -173,6 +193,7 @@ export default function PaymentPage() {
       })
     } finally {
       setAccountsLoading(false)
+      setCreditCardsLoading(false)
       setMerchantsLoading(false)
       setRecentPaymentsLoading(false)
     }
@@ -189,6 +210,15 @@ export default function PaymentPage() {
     }
   }, [merchantId, merchants])
 
+  useEffect(() => {
+    if (fundingSource === "account" && !fromAccountId && accounts.length > 0) {
+      setFromAccountId(accounts[0]!.id)
+    }
+    if (fundingSource === "credit_card" && !fromCreditCardId && creditCards.length > 0) {
+      setFromCreditCardId(creditCards[0]!.id)
+    }
+  }, [fundingSource, fromAccountId, fromCreditCardId, accounts, creditCards])
+
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text)
     toast({ title: "Copied", description: "Copied to clipboard" })
@@ -198,10 +228,18 @@ export default function PaymentPage() {
     e.preventDefault()
     setFormError(null)
 
-    if (!fromAccountId) {
-      setFormError("Please select a payment account.")
-      return
+    if (fundingSource === "account") {
+      if (!fromAccountId) {
+        setFormError("Please select a payment account.")
+        return
+      }
+    } else {
+      if (!fromCreditCardId) {
+        setFormError("Please select a credit card.")
+        return
+      }
     }
+
     if (!merchantId) {
       setFormError("Please select a merchant.")
       return
@@ -219,9 +257,20 @@ export default function PaymentPage() {
       return
     }
 
-    if (selectedAccount && (selectedAccount.balance ?? 0) < parsedAmount + parsedFee) {
-      setFormError("Insufficient balance in the selected account.")
-      return
+    const totalCharge = parsedAmount + parsedFee
+    if (fundingSource === "account") {
+      if (selectedAccount && (selectedAccount.balance ?? 0) < totalCharge) {
+        setFormError("Insufficient balance in the selected account.")
+        return
+      }
+    } else {
+      if (selectedCard) {
+        const availableCredit = (selectedCard.credit_limit ?? 0) - (selectedCard.balance_owed ?? 0)
+        if (availableCredit < totalCharge) {
+          setFormError("Insufficient available credit on the selected card.")
+          return
+        }
+      }
     }
 
     if (isRecurring && !recurrenceFrequency) {
@@ -231,7 +280,8 @@ export default function PaymentPage() {
 
     setIsSubmitting(true)
     const result = await createPayment({
-      fromAccountId,
+      fromAccountId: fundingSource === "account" ? fromAccountId : null,
+      fromCreditCardId: fundingSource === "credit_card" ? fromCreditCardId : null,
       merchantId,
       amount: parsedAmount,
       currency,
@@ -272,6 +322,7 @@ export default function PaymentPage() {
     setRecurrenceFrequency("")
     setSelectedCategoryId("")
     setMerchantId("")
+    setFromCreditCardId("")
   }
 
   return (
@@ -419,11 +470,10 @@ export default function PaymentPage() {
                           </p>
                           <Badge
                             variant="outline"
-                            className={`text-[10px] ${
-                              isSuccessful
+                            className={`text-[10px] ${isSuccessful
                                 ? "border-primary/30 bg-primary/10 text-primary"
                                 : "border-warning/30 bg-warning/10 text-warning"
-                            }`}
+                              }`}
                           >
                             {p.status}
                           </Badge>
@@ -451,8 +501,8 @@ export default function PaymentPage() {
                     type="submit"
                     disabled={
                       isSubmitting ||
-                      accountsLoading ||
-                      !fromAccountId ||
+                      (fundingSource === "account" ? accountsLoading : creditCardsLoading) ||
+                      (fundingSource === "account" ? !fromAccountId : !fromCreditCardId) ||
                       !merchantId ||
                       !amount ||
                       (isRecurring && !recurrenceFrequency)
@@ -462,34 +512,34 @@ export default function PaymentPage() {
                     {isSubmitting ? "Processing..." : "Proceed to Payment"}
                   </button>
                   <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                      aria-label="More options"
-                    >
-                      <MoreHorizontal className="h-5 w-5" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => setManageCategoryOpen(true)}>
-                      <FolderPlus className="mr-2 h-4 w-4" />
-                      Manage Merchant Categories
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setManageMerchantOpen(true)}>
-                      <Store className="mr-2 h-4 w-4" />
-                      Add Service Provider
-                    </DropdownMenuItem>
-                    <DropdownMenuItem disabled>
-                      <FileDown className="mr-2 h-4 w-4" />
-                      Import
-                    </DropdownMenuItem>
-                    <DropdownMenuItem disabled>
-                      <FileUp className="mr-2 h-4 w-4" />
-                      Export
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                        aria-label="More options"
+                      >
+                        <MoreHorizontal className="h-5 w-5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => setManageCategoryOpen(true)}>
+                        <FolderPlus className="mr-2 h-4 w-4" />
+                        Manage Merchant Categories
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setManageMerchantOpen(true)}>
+                        <Store className="mr-2 h-4 w-4" />
+                        Add Service Provider
+                      </DropdownMenuItem>
+                      <DropdownMenuItem disabled>
+                        <FileDown className="mr-2 h-4 w-4" />
+                        Import
+                      </DropdownMenuItem>
+                      <DropdownMenuItem disabled>
+                        <FileUp className="mr-2 h-4 w-4" />
+                        Export
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
 
@@ -499,13 +549,14 @@ export default function PaymentPage() {
                 </div>
               )}
 
-              {/* Payment Account (from_account_id) */}
+              {/* Payment source: Account or Credit Card */}
               <div className="mt-4">
-                <h4 className="text-sm font-medium text-card-foreground">Payment Account
-                <Link
+                <h4 className="text-sm font-medium text-card-foreground">
+                  Pay from
+                  <Link
                     href="/dashboard/account"
                     className="ml-1 inline-flex items-center text-muted-foreground hover:text-foreground"
-                    title="View all Account"
+                    title="View accounts & cards"
                   >
                     <svg
                       width={16}
@@ -524,32 +575,132 @@ export default function PaymentPage() {
                     </svg>
                   </Link>
                 </h4>
+                {/* Segmented control */}
+                <div className="mt-1.5 flex rounded-lg border border-border p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFundingSource("account")
+                      setFromCreditCardId("")
+                    }}
+                    className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${fundingSource === "account"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
+                  >
+                    <Wallet className="h-4 w-4" />
+                    Account
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFundingSource("credit_card")
+                      setFromAccountId("")
+                    }}
+                    className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${fundingSource === "credit_card"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
+                  >
+                    <CreditCard className="h-4 w-4" />
+                    Credit Card
+                  </button>
+                </div>
                 <div className="mt-1.5 min-w-0 overflow-hidden rounded-lg border border-border">
-                  {accountsLoading ? (
+                  {fundingSource === "account" ? (
+                    accountsLoading ? (
+                      <div className="flex h-20 items-center justify-center py-4 text-center text-sm text-muted-foreground">
+                        Loading accounts...
+                      </div>
+                    ) : accounts.length === 0 ? (
+                      <div className="flex h-20 items-center justify-center py-4 text-center text-sm text-muted-foreground">
+                        Add an account to make payments.
+                      </div>
+                    ) : (
+                      <div
+                        className="flex min-w-0 w-full gap-2 overflow-x-auto overflow-y-hidden overscroll-x-contain p-2 pb-1 scroll-smooth"
+                        style={{ scrollbarWidth: "thin" }}
+                      >
+                        {accounts.map((acc) => {
+                          const isSelected = fromAccountId === acc.id
+                          return (
+                            <div
+                              key={acc.id}
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => setFromAccountId(acc.id)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault()
+                                  setFromAccountId(acc.id)
+                                }
+                              }}
+                              className={`flex min-w-[150px] max-w-[200px] shrink-0 cursor-pointer flex-col gap-1.5 rounded-lg border p-2.5 text-left transition-colors sm:min-w-[180px] sm:p-3 ${isSelected
+                                ? "border-2 border-primary bg-primary/5 shadow-sm"
+                                : "border-border bg-card hover:bg-accent/50 hover:border-accent-foreground/20"
+                                }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                {acc.card_network_url ? (
+                                  <img
+                                    src={acc.card_network_url}
+                                    alt=""
+                                    className="h-8 w-8 shrink-0 rounded-lg object-contain"
+                                  />
+                                ) : (
+                                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[hsl(145,50%,25%)] to-[hsl(145,60%,18%)]">
+                                    <CreditCard className="h-4 w-4 text-[hsl(0,0%,100%)]" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1 space-y-0.5">
+                                <p className="truncate text-xs font-medium text-card-foreground">{acc.name}</p>
+                                <p className="text-sm font-bold text-card-foreground">{formatBalance(acc)}</p>
+                                <div className="flex items-center gap-1">
+                                  <p className="truncate text-xs text-muted-foreground">{acc.masked_identifier}</p>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleCopy(acc.masked_identifier)
+                                    }}
+                                    className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                                    aria-label="Copy account number"
+                                  >
+                                    <Copy className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                  ) : creditCardsLoading ? (
                     <div className="flex h-20 items-center justify-center py-4 text-center text-sm text-muted-foreground">
-                      Loading accounts...
+                      Loading credit cards...
                     </div>
-                  ) : accounts.length === 0 ? (
+                  ) : creditCards.length === 0 ? (
                     <div className="flex h-20 items-center justify-center py-4 text-center text-sm text-muted-foreground">
-                      Add an account to make payments.
+                      Add a credit card to make payments.
                     </div>
                   ) : (
                     <div
                       className="flex min-w-0 w-full gap-2 overflow-x-auto overflow-y-hidden overscroll-x-contain p-2 pb-1 scroll-smooth"
                       style={{ scrollbarWidth: "thin" }}
                     >
-                      {accounts.map((acc) => {
-                        const isSelected = fromAccountId === acc.id
+                      {creditCards.map((card) => {
+                        const isSelected = fromCreditCardId === card.id
                         return (
                           <div
-                            key={acc.id}
+                            key={card.id}
                             role="button"
                             tabIndex={0}
-                            onClick={() => setFromAccountId(acc.id)}
+                            onClick={() => setFromCreditCardId(card.id)}
                             onKeyDown={(e) => {
                               if (e.key === "Enter" || e.key === " ") {
                                 e.preventDefault()
-                                setFromAccountId(acc.id)
+                                setFromCreditCardId(card.id)
                               }
                             }}
                             className={`flex min-w-[150px] max-w-[200px] shrink-0 cursor-pointer flex-col gap-1.5 rounded-lg border p-2.5 text-left transition-colors sm:min-w-[180px] sm:p-3 ${isSelected
@@ -557,36 +708,15 @@ export default function PaymentPage() {
                               : "border-border bg-card hover:bg-accent/50 hover:border-accent-foreground/20"
                               }`}
                           >
-                            <div className="flex items-center gap-2">
-                              {acc.card_network_url ? (
-                                <img
-                                  src={acc.card_network_url}
-                                  alt=""
-                                  className="h-8 w-8 shrink-0 rounded-lg object-contain"
-                                />
-                              ) : (
-                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[hsl(145,50%,25%)] to-[hsl(145,60%,18%)]">
-                                  <CreditCard className="h-4 w-4 text-[hsl(0,0%,100%)]" />
-                                </div>
-                              )}
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[hsl(220,70%,40%)] to-[hsl(220,70%,25%)]">
+                              <CreditCard className="h-4 w-4 text-[hsl(0,0%,100%)]" />
                             </div>
                             <div className="min-w-0 flex-1 space-y-0.5">
-                              <p className="truncate text-xs font-medium text-card-foreground">{acc.name}</p>
-                              <p className="text-sm font-bold text-card-foreground">{formatBalance(acc)}</p>
-                              <div className="flex items-center gap-1">
-                                <p className="truncate text-xs text-muted-foreground">{acc.masked_identifier}</p>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleCopy(acc.masked_identifier)
-                                  }}
-                                  className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                                  aria-label="Copy account number"
-                                >
-                                  <Copy className="h-3 w-3" />
-                                </button>
-                              </div>
+                              <p className="truncate text-xs font-medium text-card-foreground">{card.name}</p>
+                              <p className="text-sm font-bold text-card-foreground text-primary">
+                                {formatAvailableCredit(card)} avail.
+                              </p>
+                              <p className="truncate text-xs text-muted-foreground">{card.masked_identifier}</p>
                             </div>
                           </div>
                         )
@@ -594,8 +724,8 @@ export default function PaymentPage() {
                     </div>
                   )}
                 </div>
-                {accounts.length > 1 && (
-                  <p className="mt-1 text-xs text-muted-foreground">Scroll to see all accounts</p>
+                {(fundingSource === "account" ? accounts.length : creditCards.length) > 1 && (
+                  <p className="mt-1 text-xs text-muted-foreground">Scroll to see all</p>
                 )}
               </div>
 

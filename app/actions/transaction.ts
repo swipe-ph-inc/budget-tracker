@@ -349,7 +349,8 @@ export type PaymentResult =
 type RecurrenceFrequency = Database["public"]["Enums"]["recurrence_frequency_enum"]
 
 export async function createPayment(params: {
-  fromAccountId: string
+  fromAccountId?: string | null
+  fromCreditCardId?: string | null
   merchantId: string
   amount: number
   currency?: string
@@ -372,8 +373,13 @@ export async function createPayment(params: {
     return { success: false, error: "You must be signed in to create a payment." }
   }
 
-  if (!params.fromAccountId) {
-    return { success: false, error: "Account ID is required." }
+  const useAccount = Boolean(params.fromAccountId)
+  const useCard = Boolean(params.fromCreditCardId)
+  if (!useAccount && !useCard) {
+    return { success: false, error: "Please select an account or credit card to pay from." }
+  }
+  if (useAccount && useCard) {
+    return { success: false, error: "Select either an account or a credit card, not both." }
   }
 
   if (!params.merchantId) {
@@ -386,20 +392,7 @@ export async function createPayment(params: {
 
   const feeAmount = params.feeAmount ?? 0
   const feeCurrency = params.feeCurrency ?? params.currency ?? "PHP"
-
-  const { data: account, error: accountError } = await supabase
-    .from("account")
-    .select("id, balance, currency, user_id")
-    .eq("id", params.fromAccountId)
-    .single()
-
-  if (accountError || !account) {
-    return { success: false, error: "Account not found." }
-  }
-
-  if (account.user_id !== user.id) {
-    return { success: false, error: "You do not have access to this account." }
-  }
+  const totalCharge = params.amount + feeAmount
 
   const { data: merchant, error: merchantError } = await supabase
     .from("merchant")
@@ -411,29 +404,111 @@ export async function createPayment(params: {
     return { success: false, error: "Merchant not found." }
   }
 
-  const currency = params.currency ?? account.currency ?? "PHP"
-  const totalDebit = params.amount + feeAmount
+  const now = new Date().toISOString()
+  const isRecurring = params.isRecurring ?? false
 
-  if ((account.balance ?? 0) < totalDebit) {
-    return { success: false, error: "Insufficient balance in the account." }
+  if (useAccount) {
+    const { data: account, error: accountError } = await supabase
+      .from("account")
+      .select("id, balance, currency, user_id")
+      .eq("id", params.fromAccountId!)
+      .single()
+
+    if (accountError || !account) {
+      return { success: false, error: "Account not found." }
+    }
+
+    if (account.user_id !== user.id) {
+      return { success: false, error: "You do not have access to this account." }
+    }
+
+    const currency = params.currency ?? account.currency ?? "PHP"
+    if ((account.balance ?? 0) < totalCharge) {
+      return { success: false, error: "Insufficient balance in the account." }
+    }
+
+    const newBalance = (account.balance ?? 0) - totalCharge
+
+    const { error: updateError } = await supabase
+      .from("account")
+      .update({ balance: newBalance })
+      .eq("id", params.fromAccountId!)
+
+    if (updateError) {
+      return { success: false, error: updateError.message }
+    }
+
+    const paymentPayload: PaymentInsert = {
+      user_id: user.id,
+      from_account_id: params.fromAccountId!,
+      from_credit_card_id: null,
+      merchant_id: params.merchantId,
+      amount: params.amount,
+      currency,
+      fee_amount: feeAmount,
+      fee_currency: feeAmount > 0 ? feeCurrency : null,
+      status: "completed",
+      paid_at: now,
+      due_date: params.dueDate ?? null,
+      note: params.note?.trim() || null,
+      is_recurring: isRecurring,
+      recurrence_frequency: isRecurring ? (params.recurrenceFrequency ?? null) : null,
+      virtual_account: params.virtualAccount?.trim() || null,
+    }
+
+    const { data: payment, error: paymentError } = await supabase
+      .from("payment")
+      .insert(paymentPayload)
+      .select("id")
+      .single()
+
+    if (paymentError) {
+      await supabase
+        .from("account")
+        .update({ balance: account.balance })
+        .eq("id", params.fromAccountId!)
+      return { success: false, error: paymentError.message }
+    }
+
+    return { success: true, data: { paymentId: payment.id } }
   }
 
-  const newBalance = (account.balance ?? 0) - totalDebit
+  // Payment from credit card
+  const { data: card, error: cardError } = await supabase
+    .from("credit_card")
+    .select("id, balance_owed, credit_limit, currency, user_id")
+    .eq("id", params.fromCreditCardId!)
+    .single()
+
+  if (cardError || !card) {
+    return { success: false, error: "Credit card not found." }
+  }
+
+  if (card.user_id !== user.id) {
+    return { success: false, error: "You do not have access to this credit card." }
+  }
+
+  const currency = params.currency ?? card.currency ?? "PHP"
+  const availableCredit = (card.credit_limit ?? 0) - (card.balance_owed ?? 0)
+  if (availableCredit < totalCharge) {
+    return { success: false, error: "Insufficient available credit on the card." }
+  }
+
+  const newBalanceOwed = (card.balance_owed ?? 0) + totalCharge
 
   const { error: updateError } = await supabase
-    .from("account")
-    .update({ balance: newBalance })
-    .eq("id", params.fromAccountId)
+    .from("credit_card")
+    .update({ balance_owed: newBalanceOwed })
+    .eq("id", params.fromCreditCardId!)
 
   if (updateError) {
     return { success: false, error: updateError.message }
   }
 
-  const now = new Date().toISOString()
-  const isRecurring = params.isRecurring ?? false
   const paymentPayload: PaymentInsert = {
     user_id: user.id,
-    from_account_id: params.fromAccountId,
+    from_account_id: null,
+    from_credit_card_id: params.fromCreditCardId!,
     merchant_id: params.merchantId,
     amount: params.amount,
     currency,
@@ -445,8 +520,6 @@ export async function createPayment(params: {
     note: params.note?.trim() || null,
     is_recurring: isRecurring,
     recurrence_frequency: isRecurring ? (params.recurrenceFrequency ?? null) : null,
-    invoice_id: null,
-    from_credit_card_id: null,
     virtual_account: params.virtualAccount?.trim() || null,
   }
 
@@ -458,9 +531,9 @@ export async function createPayment(params: {
 
   if (paymentError) {
     await supabase
-      .from("account")
-      .update({ balance: account.balance })
-      .eq("id", params.fromAccountId)
+      .from("credit_card")
+      .update({ balance_owed: card.balance_owed })
+      .eq("id", params.fromCreditCardId!)
     return { success: false, error: paymentError.message }
   }
 
@@ -819,8 +892,10 @@ export async function getPayments(
       virtual_account,
       merchant_id,
       from_account_id,
+      from_credit_card_id,
       merchant:merchant(name),
-      from_account:account!from_account_id(name, masked_identifier)
+      from_account:account!from_account_id(name, masked_identifier),
+      from_credit_card:credit_card!from_credit_card_id(name, masked_identifier)
     `)
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
@@ -857,6 +932,9 @@ export async function getPayments(
     const fromAccount = p.from_account as
       | { name?: string; masked_identifier?: string }
       | null
+    const fromCreditCard = p.from_credit_card as
+      | { name?: string; masked_identifier?: string }
+      | null
     const statusDisplay =
       (p.status ?? "pending")
         .charAt(0)
@@ -868,8 +946,8 @@ export async function getPayments(
       currency: p.currency,
       status: statusDisplay,
       merchantName: merchant?.name ?? "—",
-      fromAccountName: fromAccount?.name ?? null,
-      fromAccountMasked: fromAccount?.masked_identifier ?? null,
+      fromAccountName: fromAccount?.name ?? fromCreditCard?.name ?? null,
+      fromAccountMasked: fromAccount?.masked_identifier ?? fromCreditCard?.masked_identifier ?? null,
       paidAt: p.paid_at,
       createdAt: p.created_at,
       feeAmount: p.fee_amount ?? 0,

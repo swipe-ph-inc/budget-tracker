@@ -29,6 +29,7 @@ const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed"
 const sidebarItems = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
   { label: "Account", icon: User, href: "/dashboard/account" },
+  { label: "Credit Cards", icon: CreditCard, href: "/dashboard/cards" },
   {
     label: "Payments",
     icon: ArrowLeftRight,
@@ -40,7 +41,6 @@ const sidebarItems = [
   },
   { label: "Transactions", icon: Receipt, href: "/dashboard/transactions" },
   { label: "Invoices", icon: FileText, href: "/dashboard/invoice" },
-  { label: "Credit Cards", icon: CreditCard, href: "/dashboard/cards" },
   { label: "Saving Plans", icon: PiggyBank, href: "/dashboard/saving-plans" },
   { label: "Investments", icon: TrendingUp, href: "/dashboard/investment" },
   { label: "Inbox", icon: Mail, href: "/dashboard/inbox", badge: true },

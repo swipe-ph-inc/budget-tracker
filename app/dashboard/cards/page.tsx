@@ -1,8 +1,42 @@
 "use client"
 
+import { useState, useCallback, useEffect } from "react"
 import { TopHeader } from "@/components/top-header"
 import { Plus, ArrowUpDown, DollarSign, MoreVertical, BookOpen, Tv, Briefcase, ShoppingCart, Dumbbell, Zap, ChevronDown } from "lucide-react"
+import { AddCreditCardDialog } from "@/components/credit-card/add-credit-card-dialog"
+import { getCreditCards } from "@/app/actions/credit-cards"
+import type { Tables } from "@/lib/supabase/database.types"
 import { Badge } from "@/components/ui/badge"
+
+type CreditCardRow = Tables<"credit_card">
+type CreditCardWithExtras = CreditCardRow & { card_type?: string | null; background_img_url?: string | null }
+
+const CARD_TYPE_LOGOS: Record<string, string> = {
+  visa: "https://wvjmbjyswzmfwrvzpsel.supabase.co/storage/v1/object/public/network-logo/Visa_Inc.-Logo.wine.svg",
+  mastercard: "https://wvjmbjyswzmfwrvzpsel.supabase.co/storage/v1/object/public/network-logo/ma_symbol.svg",
+  jcb: "https://wvjmbjyswzmfwrvzpsel.supabase.co/storage/v1/object/public/network-logo/jcb_logo_color.svg",
+  amex: "https://wvjmbjyswzmfwrvzpsel.supabase.co/storage/v1/object/public/network-logo/Amex_logo_color.svg",
+}
+
+const DARK_BACKGROUND_URLS = [
+  "photo-1550684376-efcbd6e3f031", // Black
+  "premium_photo-1755192700987-cae26287e93c", // Titanium
+  "photo-1664044020180-b75bfddf9776", // Diamond
+  "kGkSg1v", // Blue (imgur)
+  "Zi6v09P", // Orange (imgur)
+  "photo-1714548870002", // Platinum
+  "photo-1513346940221", // Gold
+  "photo-1635151227785", // Silver
+]
+
+function formatCurrency(amount: number, currency: string): string {
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: currency || "PHP",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount)
+}
 import {
   ResponsiveContainer,
   BarChart,
@@ -12,41 +46,6 @@ import {
   CartesianGrid,
   Tooltip,
 } from "recharts"
-
-const cards = [
-  {
-    name: "Platinum Plus Visa",
-    type: "Debit",
-    badge: "VISA",
-    balance: "$415,000",
-    number: "**** **** **** 9967",
-    exp: "12/29",
-    cvv: "313",
-    variant: "light" as const,
-  },
-  {
-    name: "Freedom Unlimited\nMastercard",
-    displayName: ["Freedom Unlimited", "Mastercard"],
-    type: "Credit",
-    badge: null,
-    balance: "$532,000",
-    number: "**** **** **** 5487",
-    exp: "05/25",
-    cvv: "411",
-    variant: "dark" as const,
-  },
-  {
-    name: "Elite Traveler\nMastercard",
-    displayName: ["Elite Traveler", "Mastercard"],
-    type: "Credit",
-    badge: null,
-    balance: "$430,000",
-    number: "**** **** **** 3321",
-    exp: "08/29",
-    cvv: "672",
-    variant: "light" as const,
-  },
-]
 
 const cashflowData = [
   { month: "Mar", income: 6000, expense: -3000 },
@@ -67,6 +66,35 @@ const cardTransactions = [
 ]
 
 export default function CardsPage() {
+  const [addDialogOpen, setAddDialogOpen] = useState(false)
+  const [cards, setCards] = useState<CreditCardWithExtras[]>([])
+  const [cardsLoading, setCardsLoading] = useState(true)
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null)
+
+  const fetchCards = useCallback(async () => {
+    setCardsLoading(true)
+    try {
+      const data = await getCreditCards()
+      setCards((data ?? []) as CreditCardWithExtras[])
+      setSelectedCardId((prev) => {
+        const list = data ?? []
+        if (list.length === 0) return null
+        const stillExists = prev && list.some((c) => c.id === prev)
+        return stillExists ? prev : list[0]?.id ?? null
+      })
+    } catch {
+      setCards([])
+    } finally {
+      setCardsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchCards()
+  }, [fetchCards])
+
+  const selectedCard = selectedCardId ? cards.find((c) => c.id === selectedCardId) : cards[0] ?? null
+
   return (
     <>
       <TopHeader title="Credit Cards" />
@@ -78,77 +106,101 @@ export default function CardsPage() {
           <div className="rounded-xl border border-border bg-card p-4 lg:p-5">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold text-card-foreground">My Cards</h2>
-              <button className="flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80">
+              <button
+                type="button"
+                onClick={() => setAddDialogOpen(true)}
+                className="flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80"
+              >
                 <Plus className="h-4 w-4" /> Add
               </button>
             </div>
             <div className="mt-4 flex flex-col gap-4">
-              {cards.map((card, i) => {
-                const isDark = card.variant === "dark"
-                return (
-                  <div
-                    key={i}
-                    className={`relative overflow-hidden rounded-2xl p-5 ${
-                      isDark
-                        ? "bg-[hsl(150,25%,18%)] text-[hsl(0,0%,100%)]"
-                        : "border border-border bg-card text-card-foreground"
-                    }`}
+              {cardsLoading ? (
+                <div className="flex flex-col items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+                  Loading cards...
+                </div>
+              ) : cards.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-sm text-muted-foreground">
+                  <p>No credit cards yet.</p>
+                  <button
+                    type="button"
+                    onClick={() => setAddDialogOpen(true)}
+                    className="text-primary font-medium hover:underline"
                   >
-                    {/* Card top row */}
-                    <div className="flex items-start justify-between">
-                      <div>
-                        {card.displayName ? (
-                          <div className={`text-xs leading-tight ${isDark ? "text-[hsl(0,0%,100%)]/70" : "text-muted-foreground"}`}>
-                            {card.displayName.map((line, idx) => (
-                              <span key={idx} className="block">{line}</span>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className={`text-xs ${isDark ? "text-[hsl(0,0%,100%)]/70" : "text-muted-foreground"}`}>
+                    Add your first card
+                  </button>
+                </div>
+              ) : (
+                cards.map((card) => {
+                  const cardType = (card as CreditCardWithExtras).card_type
+                  const bgUrl = (card as CreditCardWithExtras).background_img_url
+                  const hasBg = Boolean(bgUrl)
+                  const cardLogoUrl = cardType ? CARD_TYPE_LOGOS[cardType] : null
+                  const availableCredit = card.credit_limit - card.balance_owed
+
+                  const needsLightText =
+                    !hasBg || DARK_BACKGROUND_URLS.some((id) => bgUrl?.includes(id))
+                  const textMuted = needsLightText ? "text-white/70" : "text-card-foreground/80"
+                  const textPrimary = needsLightText ? "text-white" : "text-card-foreground"
+
+                  return (
+                    <button
+                      key={card.id}
+                      type="button"
+                      onClick={() => setSelectedCardId(card.id)}
+                      className={`relative w-full overflow-hidden rounded-2xl p-5 text-left transition-colors hover:ring-2 hover:ring-primary/50 ${
+                        selectedCardId === card.id ? "ring-2 ring-primary" : ""
+                      } border border-border ${hasBg ? "" : "bg-gradient-to-br from-[hsl(220,70%,35%)] to-[hsl(220,70%,22%)]"} ${textPrimary}`}
+                      style={hasBg ? { backgroundImage: `url(${bgUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
+                    >
+                      {/* Card top row */}
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className={`text-xs ${textMuted}`}>
                             {card.name}
                           </p>
-                        )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {cardLogoUrl ? (
+                            <img src={cardLogoUrl} alt="" className="h-6 w-8 object-contain" />
+                          ) : (
+                            <div className="flex">
+                              <span className={`h-6 w-6 rounded-full ${needsLightText ? "bg-white/50" : "bg-primary/50"}`} />
+                              <span className={`-ml-3 h-6 w-6 rounded-full ${needsLightText ? "bg-white/30" : "bg-primary/30"}`} />
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        {card.badge ? (
-                          <span className="text-lg font-bold italic tracking-wider text-primary">
-                            {card.badge}
-                          </span>
-                        ) : (
-                          <div className="flex">
-                            <span className={`h-6 w-6 rounded-full ${isDark ? "bg-[hsl(145,50%,45%)]/70" : "bg-[hsl(145,50%,50%)]/50"}`} />
-                            <span className={`-ml-3 h-6 w-6 rounded-full ${isDark ? "bg-[hsl(145,30%,65%)]/50" : "bg-[hsl(145,30%,70%)]/40"}`} />
-                          </div>
-                        )}
-                      </div>
-                    </div>
 
-                    {/* Balance row */}
-                    <div className="mt-4 flex items-end justify-between">
-                      <p className="text-2xl font-bold">{card.balance}</p>
-                      <span className={`text-sm font-medium ${isDark ? "text-[hsl(0,0%,100%)]/80" : "text-muted-foreground"}`}>
-                        {card.type}
-                      </span>
-                    </div>
+                      {/* Balance row */}
+                      <div className="mt-4 flex items-end justify-between">
+                        <p className={`text-2xl font-bold ${textPrimary}`}>
+                          {formatCurrency(card.balance_owed, card.currency)}
+                        </p>
+                        <span className={`text-sm font-medium ${textMuted}`}>
+                          Balance owed
+                        </span>
+                      </div>
 
-                    {/* Card details row */}
-                    <div className={`mt-4 flex items-center justify-between text-xs ${isDark ? "text-[hsl(0,0%,100%)]/60" : "text-muted-foreground"}`}>
-                      <div>
-                        <p>Card Number</p>
-                        <p className={`mt-0.5 font-medium ${isDark ? "text-[hsl(0,0%,100%)]" : "text-card-foreground"}`}>{card.number}</p>
+                      {/* Card details row */}
+                      <div className={`mt-4 flex items-center justify-between text-xs ${textMuted}`}>
+                        <div>
+                          <p>Card Number</p>
+                          <p className={`mt-0.5 font-medium ${textPrimary}`}>
+                            {card.masked_identifier}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p>Available</p>
+                          <p className={`mt-0.5 font-medium ${textPrimary}`}>
+                            {formatCurrency(availableCredit, card.currency)}
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-center">
-                        <p>EXP</p>
-                        <p className={`mt-0.5 font-medium ${isDark ? "text-[hsl(0,0%,100%)]" : "text-card-foreground"}`}>{card.exp}</p>
-                      </div>
-                      <div className="text-right">
-                        <p>CVV</p>
-                        <p className={`mt-0.5 font-medium ${isDark ? "text-[hsl(0,0%,100%)]" : "text-card-foreground"}`}>{card.cvv}</p>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
+                    </button>
+                  )
+                })
+              )}
             </div>
           </div>
 
@@ -178,20 +230,26 @@ export default function CardsPage() {
             {/* Card Details */}
             <div className="rounded-xl border border-border bg-card p-4 lg:p-5">
               <p className="text-xs text-muted-foreground">Card Number</p>
-              <p className="mt-1 text-xl font-bold tracking-widest text-card-foreground lg:text-2xl">5582 5574 8376 5487</p>
+              <p className="mt-1 text-xl font-bold tracking-widest text-card-foreground lg:text-2xl">
+                {selectedCard ? selectedCard.masked_identifier : "—"}
+              </p>
               <div className="mt-5 flex items-center gap-8">
                 <div>
-                  <p className="text-xs text-muted-foreground">Expiry Date</p>
-                  <p className="mt-1 text-sm font-bold text-card-foreground">05/25</p>
+                  <p className="text-xs text-muted-foreground">Balance Owed</p>
+                  <p className="mt-1 text-sm font-bold text-card-foreground">
+                    {selectedCard ? formatCurrency(selectedCard.balance_owed, selectedCard.currency) : "—"}
+                  </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">CVC</p>
-                  <p className="mt-1 text-sm font-bold text-card-foreground">411</p>
+                  <p className="text-xs text-muted-foreground">Available Credit</p>
+                  <p className="mt-1 text-sm font-bold text-card-foreground">
+                    {selectedCard ? formatCurrency(selectedCard.credit_limit - selectedCard.balance_owed, selectedCard.currency) : "—"}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Status</p>
                   <Badge className="mt-1 rounded-md bg-primary/15 px-3 py-0.5 text-xs font-semibold text-primary hover:bg-primary/15">
-                    Active
+                    {selectedCard?.is_active ? "Active" : "Inactive"}
                   </Badge>
                 </div>
               </div>
@@ -207,21 +265,27 @@ export default function CardsPage() {
               </div>
               {/* Multi-segment progress bar */}
               <div className="mt-4 flex h-3 w-full overflow-hidden rounded-full bg-secondary">
-                <div
-                  className="h-full rounded-l-full bg-[hsl(220,55%,42%)]"
-                  style={{ width: "30%" }}
-                />
-                <div
-                  className="h-full bg-[hsl(45,65%,55%)]"
-                  style={{ width: "15%" }}
-                />
+                {selectedCard && selectedCard.credit_limit > 0 && (
+                  <div
+                    className="h-full rounded-l-full bg-[hsl(220,55%,42%)]"
+                    style={{ width: `${Math.min(100, (selectedCard.balance_owed / selectedCard.credit_limit) * 100)}%` }}
+                  />
+                )}
               </div>
               <div className="mt-3 flex items-center justify-between text-sm">
                 <div>
-                  <span className="font-bold text-card-foreground">$4,500.00</span>
-                  <span className="ml-1 text-muted-foreground">{"spent of $10,000.00"}</span>
+                  <span className="font-bold text-card-foreground">
+                    {selectedCard ? formatCurrency(selectedCard.balance_owed, selectedCard.currency) : "—"}
+                  </span>
+                  <span className="ml-1 text-muted-foreground">
+                    {selectedCard ? `owed of ${formatCurrency(selectedCard.credit_limit, selectedCard.currency)}` : "—"}
+                  </span>
                 </div>
-                <span className="font-bold text-card-foreground">45%</span>
+                <span className="font-bold text-card-foreground">
+                  {selectedCard && selectedCard.credit_limit > 0
+                    ? `${Math.round((selectedCard.balance_owed / selectedCard.credit_limit) * 100)}%`
+                    : "—"}
+                </span>
               </div>
             </div>
           </div>
@@ -358,6 +422,12 @@ export default function CardsPage() {
           </div>
         </div>
       </div>
+
+      <AddCreditCardDialog
+        open={addDialogOpen}
+        onOpenChange={setAddDialogOpen}
+        onCompleted={fetchCards}
+      />
     </>
   )
 }

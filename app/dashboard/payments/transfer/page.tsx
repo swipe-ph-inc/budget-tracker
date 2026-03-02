@@ -35,8 +35,6 @@ function parseAmount(value: string): number {
 const paymentTabs = [
   { label: "Transfer", icon: ArrowLeftRight, href: "/dashboard/payments/transfer", active: true },
   { label: "Payment", icon: CreditCard, href: "/dashboard/payments/payment", active: false },
-  { label: "Virtual Acc", icon: CreditCard, href: "#", active: false },
-  { label: "Top Up", icon: Plus, href: "#", active: false },
 ]
 
 function initials(displayName: string): string {
