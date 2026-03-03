@@ -82,7 +82,7 @@ function formatMaskedIdentifier(value: string): string {
   const digits = value.replace(/\D/g, "").slice(-4)
   if (digits.length === 0) return ""
   if (digits.length < 4) return digits
-  return `•••• •••• ••••${digits}`
+  return `•••• •••• •••• ${digits}`
 }
 
 function formatCurrency(amount: number, curr: string): string {
