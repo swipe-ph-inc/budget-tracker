@@ -33,8 +33,15 @@ import {
 } from "@/app/actions/transaction"
 import type { Database } from "@/lib/supabase/database.types"
 import { toast } from "@/hooks/use-toast"
-
-
+import Link from "next/link"
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
 type AccountRow = Database["public"]["Tables"]["account"]["Row"]
 
 type CardTypes = {
@@ -257,6 +264,21 @@ export default function AccountPage() {
   return (
     <>
       <TopHeader title="Account" />
+      <main className="mx-auto max-w-screen-2xl px-4 pt-4 lg:px-8 lg:pt-6">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link href="/dashboard">Dashboard</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>Accounts</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+      </main>
       <AddAccountDialog
         open={addAccountOpen}
         onOpenChange={setAddAccountOpen}
@@ -491,13 +513,19 @@ export default function AccountPage() {
                         if (isTransfer) setTransferOpen(true)
                         if (isPayment) setPaymentOpen(true)
                       }
+                      const colorClasses =
+                        isTopUp
+                          ? "border-success/40 text-success hover:bg-success/10"
+                          : isTransfer
+                            ? "border-primary/40 text-primary hover:bg-primary/10"
+                            : "border-primary/40 text-primary hover:bg-primary/10"
                       return (
                         <button
                           key={action.label}
                           type="button"
                           title={action.label}
                           onClick={handleClick}
-                          className="flex h-9 min-w-[88px] items-center justify-center gap-1.5 rounded-lg border border-border bg-muted/50 px-4 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+                          className={`flex h-9 min-w-[88px] items-center justify-center gap-1.5 rounded-lg border bg-muted/50 px-4 text-xs font-medium transition-colors ${colorClasses}`}
                         >
                           <action.icon className="h-3.5 w-3.5" aria-hidden />
                           <span>{action.label}</span>
@@ -567,27 +595,27 @@ export default function AccountPage() {
                         { icon: ShieldOff, label: "Deactivate" },
                         { icon: Trash, label: "Delete" },
                       ].map((action) => {
-                        const isDelete = action.label === "Delete";
-                        const isUpdate = action.label === "Update";
-                        const isDeactivate = action.label === "Deactivate";
+                        const isDelete = action.label === "Delete"
+                        const isUpdate = action.label === "Update"
+                        const isDeactivate = action.label === "Deactivate"
                         const handleClick = async () => {
-                          if (!selectedCard || !accounts) return;
+                          if (!selectedCard || !accounts) return
 
                           if (isUpdate) {
                             const selectedAccount = accounts.find(
-                              (acc) => acc.id === selectedCard.id,
-                            );
-                            if (!selectedAccount) return;
+                              (acc) => acc.id === selectedCard.id
+                            )
+                            if (!selectedAccount) return
 
                             const formattedBalance = new Intl.NumberFormat(
                               undefined,
                               {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2,
-                              },
-                            ).format(selectedAccount.balance ?? 0);
+                              }
+                            ).format(selectedAccount.balance ?? 0)
 
-                            setUpdateAccountId(selectedAccount.id);
+                            setUpdateAccountId(selectedAccount.id)
                             setUpdateInitialValues({
                               accountName: selectedAccount.name ?? "",
                               bankName: selectedAccount.bank_name,
@@ -596,58 +624,59 @@ export default function AccountPage() {
                               totalBalance: formattedBalance,
                               currency: selectedAccount.currency || "PHP",
                               accountType:
-                                selectedAccount.account_type as UpdateAccountInitialValues["accountType"],
-                            });
-                            setUpdateAccountOpen(true);
-                            return;
+                                selectedAccount.account_type as UpdateAccountInitialValues["accountType"]
+                            })
+                            setUpdateAccountOpen(true)
+                            return
                           }
 
                           if (isDeactivate) {
-                            const result = await deactivateAccount(selectedCard.id);
+                            const result = await deactivateAccount(selectedCard.id)
                             if (result.success) {
                               toast({
                                 title: "Account deactivated",
                                 description: result.message,
-                              });
-                              fetchAccounts();
+                              })
+                              fetchAccounts()
                             } else {
                               toast({
                                 title: "Failed to deactivate account",
                                 description: result.error,
                                 variant: "destructive",
-                              });
+                              })
                             }
-                            return;
+                            return
                           }
 
                           if (isDelete) {
-                            const result = await deleteAccount(selectedCard.id);
+                            const result = await deleteAccount(selectedCard.id)
                             if (result.success) {
                               toast({
                                 title: "Account deleted",
                                 description: result.message,
-                              });
-                              fetchAccounts();
+                              })
+                              fetchAccounts()
                             } else {
                               toast({
                                 title: "Failed to delete account",
                                 description: result.error,
                                 variant: "destructive",
-                              });
+                              })
                             }
                           }
-                        };
+                        }
+                        const colorClasses = isDelete
+                          ? "border-destructive/60 text-destructive hover:bg-destructive/10"
+                          : isDeactivate
+                            ? "border-warning/50 text-warning hover:bg-warning/10"
+                            : "border-primary/40 text-primary hover:bg-primary/10"
                         return (
                           <button
                             key={action.label}
                             type="button"
                             title={action.label}
                             onClick={handleClick}
-                            className={
-                              isDelete
-                                ? "flex h-9 items-center justify-center gap-1.5 rounded-lg border border-destructive bg-destructive px-4 text-xs font-medium text-destructive-foreground transition-colors hover:bg-destructive/80"
-                                : "flex h-9 items-center justify-center gap-1.5 rounded-lg border border-border bg-muted/50 px-4 text-xs font-medium text-foreground transition-colors hover:bg-accent"
-                            }
+                            className={`flex h-9 items-center justify-center gap-1.5 rounded-lg border bg-muted/50 px-4 text-xs font-medium transition-colors ${colorClasses}`}
                           >
                             <action.icon className="h-3.5 w-3.5" aria-hidden />
                             <span>{action.label}</span>

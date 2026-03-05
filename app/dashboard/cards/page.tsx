@@ -18,8 +18,6 @@ import { Button } from "@/components/ui/button"
 type CreditCardRow = Tables<"credit_card">
 
 function mapRowToCard(row: CreditCardRow): CreditCardData {
-  const anyRow = row as any
-
   return {
     id: row.id,
     name: row.name ?? "Credit Card",
@@ -28,10 +26,12 @@ function mapRowToCard(row: CreditCardRow): CreditCardData {
     credit_limit: row.credit_limit ?? 0,
     currency: row.currency ?? "PHP",
     is_active: row.is_active ?? true,
-    card_type: anyRow.card_type ?? null,
-    background_img_url: anyRow.background_img_url ?? null,
+    card_type: row.card_type ?? null,
+    background_img_url: row.background_img_url ?? null,
     statement_day: row.statement_day,
     payment_due_day: row.payment_due_day,
+    is_blocked: row.is_blocked ?? null,
+    is_temporary_blocked: row.temporary_blocked ?? null,
   }
 }
 
@@ -99,7 +99,7 @@ export default function CardsPage() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[300px_1fr] xl:grid-cols-[340px_1fr]">
           {/* ── Left Column: Card List ────────────────── */}
           <aside className="flex flex-col gap-5">
-            <div className="flex max-h-[calc(100vh-9rem)] flex-col rounded-2xl border border-border bg-card p-4 lg:p-5">
+            <div className="flex h-[calc(100vh-9rem)] flex-col rounded-2xl border border-border bg-card p-4 lg:p-5">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-card-foreground">
                   My Cards
@@ -139,10 +139,13 @@ export default function CardsPage() {
             </div>
           </aside>
 
-          {/* ── Right Column: Details + Quick Actions + Transactions ── */}
-          <div className="flex flex-col gap-6">
+          {/* ── Right Column: same height as card list ────────────────── */}
+          <div className="flex h-[calc(100vh-9rem)] flex-col gap-6">
             <QuickActions />
-            <CardDetailsPanel card={selectedCard} />
+            {/* <RecentTransactionsSection creditCardId={selectedCardId} /> */}
+            <div className="min-h-0 flex-1">
+              <CardDetailsPanel card={selectedCard} onCardUpdated={loadCards} />
+            </div>
           </div>
         </div>
       </main>

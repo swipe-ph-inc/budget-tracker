@@ -859,9 +859,11 @@ export type PaymentListItem = {
 export type GetPaymentsFilters = {
   status?: string
   fromAccountId?: string
+  fromCreditCardId?: string
   merchantId?: string
   dateFrom?: string
   dateTo?: string
+  limit?: number
 }
 
 export async function getPayments(
@@ -909,6 +911,9 @@ export async function getPayments(
   if (filters?.fromAccountId && filters.fromAccountId !== "all") {
     query = query.eq("from_account_id", filters.fromAccountId)
   }
+  if (filters?.fromCreditCardId && filters.fromCreditCardId !== "all") {
+    query = query.eq("from_credit_card_id", filters.fromCreditCardId)
+  }
   if (filters?.merchantId && filters.merchantId !== "all") {
     query = query.eq("merchant_id", filters.merchantId)
   }
@@ -920,6 +925,8 @@ export async function getPayments(
     endOfDay.setHours(23, 59, 59, 999)
     query = query.lte("created_at", endOfDay.toISOString())
   }
+  const limit = filters?.limit ?? 50
+  query = query.limit(limit)
 
   const { data: payments, error } = await query
 

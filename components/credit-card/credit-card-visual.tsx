@@ -32,6 +32,8 @@ export interface CreditCardData {
     background_img_url?: string | null
     statement_day?: number | null
     payment_due_day?: number | null
+    is_blocked?: boolean | null
+    is_temporary_blocked?: boolean | null
 }
 
 function formatCurrency(amount: number, currency: string): string {
