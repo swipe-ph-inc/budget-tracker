@@ -283,6 +283,224 @@ export async function getInstallmentPlans(): Promise<InstallmentPlanListItem[]> 
   return plans
 }
 
+export type SubscriptionScheduleListItem = {
+  id: string
+  merchantId: string
+  merchantName: string
+  amount: number
+  currency: string
+  recurrenceFrequency: string
+  nextDueDate: string
+  nextDueDateLabel: string
+  billingDayLabel: string
+  cardId: string
+  cardName: string
+  cardMaskedIdentifier: string
+  status: string
+  autoPayEnabled: boolean
+}
+
+export async function getSubscriptionSchedules(): Promise<SubscriptionScheduleListItem[]> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return []
+  }
+
+  const { data, error } = await (supabase as { from: (t: string) => ReturnType<typeof supabase["from"]> })
+    .from("payment_schedule")
+    .select(
+      `
+        id,
+        merchant_id,
+        amount,
+        currency,
+        next_due_date,
+        recurrence_frequency,
+        status,
+        auto_pay_enabled,
+        merchant:merchant_id(name),
+        credit_card:auto_pay_credit_card_id(id, name, masked_identifier)
+      `,
+    )
+    .eq("user_id", user.id)
+    .eq("schedule_type", "subscription")
+    .not("auto_pay_credit_card_id", "is", null)
+    .order("next_due_date", { ascending: true })
+
+  if (error || !data) {
+    return []
+  }
+
+  type Row = {
+    id: string
+    merchant_id: string
+    amount: number
+    currency: string
+    next_due_date: string
+    recurrence_frequency: string
+    status: string
+    auto_pay_enabled: boolean
+    merchant: { name: string | null } | null
+    credit_card: { id: string; name: string | null; masked_identifier: string } | null
+  }
+
+  const rows = data as unknown as Row[]
+
+  return rows.map((row) => {
+    const nextDate = new Date(row.next_due_date)
+    const day = nextDate.getDate()
+    const billingDayLabel =
+      day >= 11 && day <= 13
+        ? `Every ${day}th`
+        : day % 10 === 1
+          ? `Every ${day}st`
+          : day % 10 === 2
+            ? `Every ${day}nd`
+            : day % 10 === 3
+              ? `Every ${day}rd`
+              : `Every ${day}th`
+    const nextDueDateLabel = nextDate.toLocaleDateString(undefined, {
+      month: "short",
+      day: "2-digit",
+    })
+
+    return {
+      id: row.id,
+      merchantId: row.merchant_id ?? "",
+      merchantName: row.merchant?.name ?? "—",
+      amount: row.amount,
+      currency: row.currency || "PHP",
+      recurrenceFrequency: row.recurrence_frequency,
+      nextDueDate: row.next_due_date,
+      nextDueDateLabel,
+      billingDayLabel,
+      cardId: row.credit_card?.id ?? "",
+      cardName: row.credit_card?.name ?? "Credit Card",
+      cardMaskedIdentifier: row.credit_card?.masked_identifier ?? "•••• •••• •••• ••••",
+      status: row.status ?? "active",
+      autoPayEnabled: row.auto_pay_enabled ?? false,
+    }
+  })
+}
+
+export type UpdateSubscriptionScheduleResult =
+  | { success: true }
+  | { success: false; error: string }
+
+export async function updateSubscriptionSchedule(
+  scheduleId: string,
+  params: {
+    merchantId?: string
+    creditCardId?: string
+    amount?: number
+    frequency?: "monthly" | "quarterly" | "yearly"
+    billingDay?: number
+    currency?: string
+    autoPayEnabled?: boolean
+  }
+): Promise<UpdateSubscriptionScheduleResult> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+  if (authError || !user) {
+    return { success: false, error: "You must be signed in." }
+  }
+
+  const { data: schedule, error: fetchError } = await (supabase as { from: (t: string) => ReturnType<typeof supabase["from"]> })
+    .from("payment_schedule")
+    .select("id, user_id")
+    .eq("id", scheduleId)
+    .single()
+
+  if (fetchError || !schedule) {
+    return { success: false, error: "Subscription not found." }
+  }
+  if (schedule.user_id !== user.id) {
+    return { success: false, error: "You do not have access to this subscription." }
+  }
+
+  const updatePayload: Record<string, unknown> = {}
+  if (params.merchantId !== undefined) updatePayload.merchant_id = params.merchantId
+  if (params.creditCardId !== undefined) updatePayload.auto_pay_credit_card_id = params.creditCardId
+  if (params.amount !== undefined) updatePayload.amount = params.amount
+  if (params.frequency !== undefined) updatePayload.recurrence_frequency = params.frequency
+  if (params.currency !== undefined) updatePayload.currency = params.currency
+  if (params.autoPayEnabled !== undefined) updatePayload.auto_pay_enabled = params.autoPayEnabled
+  if (params.billingDay !== undefined) {
+    updatePayload.next_due_date = getNextDueDate(params.billingDay)
+  }
+
+  if (Object.keys(updatePayload).length === 0) {
+    return { success: true }
+  }
+
+  const { error: updateError } = await (supabase as { from: (t: string) => ReturnType<typeof supabase["from"]> })
+    .from("payment_schedule")
+    .update(updatePayload as never)
+    .eq("id", scheduleId)
+    .eq("user_id", user.id)
+
+  if (updateError) {
+    return { success: false, error: updateError.message }
+  }
+  return { success: true }
+}
+
+export type ToggleSubscriptionAutoPayResult =
+  | { success: true }
+  | { success: false; error: string }
+
+export async function toggleSubscriptionAutoPay(
+  scheduleId: string,
+  enabled: boolean
+): Promise<ToggleSubscriptionAutoPayResult> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return { success: false, error: "You must be signed in." }
+  }
+
+  const { data: schedule, error: fetchError } = await (supabase as { from: (t: string) => ReturnType<typeof supabase["from"]> })
+    .from("payment_schedule")
+    .select("id, user_id")
+    .eq("id", scheduleId)
+    .single()
+
+  if (fetchError || !schedule) {
+    return { success: false, error: "Subscription not found." }
+  }
+
+  if (schedule.user_id !== user.id) {
+    return { success: false, error: "You do not have access to this subscription." }
+  }
+
+  const { error: updateError } = await (supabase as { from: (t: string) => ReturnType<typeof supabase["from"]> })
+    .from("payment_schedule")
+    .update({ auto_pay_enabled: enabled })
+    .eq("id", scheduleId)
+    .eq("user_id", user.id)
+
+  if (updateError) {
+    return { success: false, error: updateError.message }
+  }
+
+  return { success: true }
+}
+
 export type UpdateCreditCardResult =
   | { success: true }
   | { success: false; error: string }
@@ -724,6 +942,8 @@ export async function createSubscriptionSchedule(params: {
   frequency: "monthly" | "quarterly" | "yearly"
   billingDay: number
   currency: string
+  /** Default true. When true, the subscription will be charged automatically on the billing day. */
+  autoPayEnabled?: boolean
 }): Promise<CreateSubscriptionScheduleResult> {
   const supabase = await createClient()
 
@@ -749,7 +969,7 @@ export async function createSubscriptionSchedule(params: {
       fee_amount: 0,
       recurrence_frequency: params.frequency,
       next_due_date: nextDueDate,
-      auto_pay_enabled: false,
+      auto_pay_enabled: params.autoPayEnabled ?? true,
       auto_pay_credit_card_id: params.creditCardId,
       status: "active",
     } as never)

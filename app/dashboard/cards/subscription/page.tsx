@@ -1,9 +1,10 @@
 "use client"
 
 import Link from "next/link"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { TopHeader } from "@/components/top-header"
 import { Badge } from "@/components/ui/badge"
-import { CreditCard, CalendarRange, Calendar, RefreshCw, MoreHorizontal } from "lucide-react"
+import { CreditCard, RefreshCw, MoreHorizontal } from "lucide-react"
 import {
     Breadcrumb,
     BreadcrumbList,
@@ -12,143 +13,135 @@ import {
     BreadcrumbPage,
     BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
+import {
+    getSubscriptionSchedules,
+    toggleSubscriptionAutoPay,
+    type SubscriptionScheduleListItem,
+} from "@/app/actions/credit-cards"
+import { AddSubscriptionDialog } from "@/components/credit-card/subscription/add-subscription-dialog"
+import { EditSubscriptionDialog } from "@/components/credit-card/subscription/edit-subscription-dialog"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { toast } from "@/hooks/use-toast"
+import { Zap } from "lucide-react"
 
-const MOCK_SUBSCRIPTIONS = [
-    {
-        id: "1",
-        merchant: "Netflix",
-        category: "Entertainment",
-        amount: "₱499.00",
-        billingDay: "Every 12th",
-        nextCharge: "Mar 12",
-        cardName: "BPI Platinum Visa",
-        cardMasked: "•••• 1234",
-        status: "active" as const,
-        tag: "Streaming",
-    },
-    {
-        id: "2",
-        merchant: "Spotify",
-        category: "Music",
-        amount: "₱149.00",
-        billingDay: "Every 3rd",
-        nextCharge: "Mar 03",
-        cardName: "UnionBank Gold",
-        cardMasked: "•••• 5678",
-        status: "active" as const,
-        tag: "Audio",
-    },
-    {
-        id: "3",
-        merchant: "Adobe Creative Cloud",
-        category: "Productivity",
-        amount: "₱2,499.00",
-        billingDay: "Every 25th",
-        nextCharge: "Mar 25",
-        cardName: "BPI Platinum Visa",
-        cardMasked: "•••• 1234",
-        status: "paused" as const,
-        tag: "Design",
-    },
+const STATUS_FILTER_OPTIONS = [
+    { value: "all", label: "All" },
+    { value: "active", label: "Active" },
+    { value: "paused", label: "Paused" },
+    { value: "cancelled", label: "Cancelled" },
 ] as const
 
-const SUMMARY_CARDS = [
-    {
-        label: "Monthly spend on subscriptions",
-        value: "₱3,147.00",
-        icon: RefreshCw,
-        tone: "primary" as const,
-    },
-    {
-        label: "Active subscriptions",
-        value: "3",
-        icon: CalendarRange,
-        tone: "success" as const,
-    },
-    {
-        label: "Next upcoming charge",
-        value: "Mar 03 • Spotify",
-        icon: Calendar,
-        tone: "default" as const,
-    },
-]
+const FREQ_LABELS: Record<string, string> = {
+    weekly: "Weekly",
+    biweekly: "Biweekly",
+    monthly: "Monthly",
+    quarterly: "Quarterly",
+    yearly: "Yearly",
+}
 
 export default function CardSubscriptionPage() {
+    const [statusFilter, setStatusFilter] = useState<"all" | "active" | "paused" | "cancelled">("all")
+    const [cardFilter, setCardFilter] = useState<string>("all")
+    const [merchantFilter, setMerchantFilter] = useState<string>("all")
+    const [currencyFilter, setCurrencyFilter] = useState<string>("all")
+    const [schedules, setSchedules] = useState<SubscriptionScheduleListItem[]>([])
+    const [loading, setLoading] = useState(false)
+    const [addDialogOpen, setAddDialogOpen] = useState(false)
+    const [editSubscription, setEditSubscription] = useState<SubscriptionScheduleListItem | null>(null)
+    const [autoPayConfirm, setAutoPayConfirm] = useState<{
+        sub: SubscriptionScheduleListItem
+        enable: boolean
+    } | null>(null)
+
+    const loadSchedules = useCallback(async () => {
+        setLoading(true)
+        try {
+            const data = await getSubscriptionSchedules()
+            setSchedules(data)
+        } finally {
+            setLoading(false)
+        }
+    }, [])
+
+    useEffect(() => {
+        void loadSchedules()
+    }, [loadSchedules])
+
+    const filterOptions = useMemo(() => {
+        const cards = Array.from(
+            new Map(
+                schedules
+                    .filter((s) => s.cardId)
+                    .map((s) => [s.cardId, { id: s.cardId, name: s.cardName }]),
+            ).values(),
+        ).sort((a, b) => a.name.localeCompare(b.name))
+        const merchants = Array.from(
+            new Set(schedules.map((s) => s.merchantName).filter((n) => n && n !== "—")),
+        ).sort()
+        const currencies = Array.from(new Set(schedules.map((s) => s.currency).filter(Boolean))).sort()
+        return { cards, merchants, currencies }
+    }, [schedules])
+
+    const filteredSchedules = useMemo(
+        () =>
+            schedules.filter((s) => {
+                if (statusFilter !== "all") {
+                    const sStatus = s.status?.toLowerCase() ?? "active"
+                    if (sStatus !== statusFilter) return false
+                }
+                if (cardFilter !== "all" && s.cardId !== cardFilter) return false
+                if (merchantFilter !== "all" && s.merchantName !== merchantFilter) return false
+                if (currencyFilter !== "all" && s.currency !== currencyFilter) return false
+                return true
+            }),
+        [schedules, statusFilter, cardFilter, merchantFilter, currencyFilter],
+    )
+
+    const handleConfirmAutoPay = async () => {
+        if (!autoPayConfirm) return
+        const result = await toggleSubscriptionAutoPay(autoPayConfirm.sub.id, autoPayConfirm.enable)
+        setAutoPayConfirm(null)
+        if (result.success) {
+            toast({
+                title: autoPayConfirm.enable ? "Auto pay enabled" : "Auto pay disabled",
+                description: autoPayConfirm.enable
+                    ? `${autoPayConfirm.sub.merchantName} will be charged automatically on the billing day.`
+                    : `${autoPayConfirm.sub.merchantName} will no longer be charged automatically.`,
+            })
+            void loadSchedules()
+        } else {
+            toast({ title: "Failed", description: result.error, variant: "destructive" })
+        }
+    }
+
     return (
         <div className="min-h-screen bg-background">
             <TopHeader title="Card Subscriptions" />
-            <main className="mx-auto max-w-screen-2xl px-4 py-6 lg:px-8 lg:py-8">
-                <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr] xl:grid-cols-[320px_1fr]">
-                    {/* Left column – overview & filters */}
-                    <aside className="flex flex-col gap-4">
-                        {/* Overview */}
-                        <section className="space-y-3 rounded-2xl border border-border bg-card p-4 lg:p-5">
-                            <h2 className="text-sm font-semibold text-card-foreground">
-                                Overview this month
-                            </h2>
-                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                {SUMMARY_CARDS.map((card) => {
-                                    const Icon = card.icon
-                                    const toneClass =
-                                        card.tone === "primary"
-                                            ? "bg-primary/10 text-primary"
-                                            : card.tone === "success"
-                                                ? "bg-success/10 text-success"
-                                                : "bg-muted text-muted-foreground"
-                                    return (
-                                        <div
-                                            key={card.label}
-                                            className="flex items-center gap-3 rounded-xl border border-border bg-background/60 p-3"
-                                        >
-                                            <div
-                                                className={`flex h-9 w-9 items-center justify-center rounded-lg text-sm ${toneClass}`}
-                                            >
-                                                <Icon className="h-4 w-4" aria-hidden />
-                                            </div>
-                                            <div className="min-w-0">
-                                                <p className="truncate text-[11px] font-medium text-muted-foreground">
-                                                    {card.label}
-                                                </p>
-                                                <p className="mt-0.5 text-sm font-semibold tabular-nums text-card-foreground">
-                                                    {card.value}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                        </section>
-
-                        {/* Filters (static for now) */}
-                        <section className="rounded-2xl border border-border bg-card p-4 lg:p-5">
-                            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                Filters
-                            </h3>
-                            <div className="mt-3 flex flex-wrap gap-2">
-                                <button
-                                    type="button"
-                                    className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
-                                >
-                                    Active
-                                </button>
-                                <button
-                                    type="button"
-                                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
-                                >
-                                    Paused
-                                </button>
-                                <button
-                                    type="button"
-                                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
-                                >
-                                    This month
-                                </button>
-                            </div>
-                        </section>
-                    </aside>
-
-                    {/* Right column – subscription list */}
-                    <section className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 lg:p-5">
+            <main className="w-full px-2 py-4 sm:px-4 sm:py-6 lg:px-6 lg:py-8">
+                <div className="w-full flex justify-center">
+                    <section className="w-full max-w-screen-2xl flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 lg:p-5 mx-auto">
                         <Breadcrumb>
                             <BreadcrumbList>
                                 <BreadcrumbItem>
@@ -179,12 +172,120 @@ export default function CardSubscriptionPage() {
                             </div>
                             <button
                                 type="button"
+                                onClick={() => setAddDialogOpen(true)}
                                 className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10"
                             >
                                 <RefreshCw className="h-3.5 w-3.5" aria-hidden />
-                                Manage in Payment Schedules
+                                Add subscription
                             </button>
                         </header>
+
+                        {/* Filters */}
+                        <div className="flex flex-col gap-3 border-b border-border pb-3">
+                            <p className="text-xs text-muted-foreground">
+                                Filter your subscriptions.
+                            </p>
+                            <div className="flex flex-wrap items-center gap-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-muted-foreground">Status</span>
+                                    <Select
+                                        value={statusFilter}
+                                        onValueChange={(v) =>
+                                            setStatusFilter(v as "all" | "active" | "paused" | "cancelled")
+                                        }
+                                    >
+                                        <SelectTrigger className="h-8 w-[140px] text-xs">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {STATUS_FILTER_OPTIONS.map((opt) => (
+                                                <SelectItem key={opt.value} value={opt.value}>
+                                                    {opt.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-muted-foreground">Card</span>
+                                    <Select
+                                        value={cardFilter}
+                                        onValueChange={setCardFilter}
+                                        disabled={filterOptions.cards.length === 0}
+                                    >
+                                        <SelectTrigger className="h-8 w-[160px] text-xs">
+                                            <SelectValue
+                                                placeholder={
+                                                    filterOptions.cards.length === 0
+                                                        ? "No cards"
+                                                        : "All cards"
+                                                }
+                                            />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All cards</SelectItem>
+                                            {filterOptions.cards.map((c) => (
+                                                <SelectItem key={c.id} value={c.id}>
+                                                    {c.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-muted-foreground">Merchant</span>
+                                    <Select
+                                        value={merchantFilter}
+                                        onValueChange={setMerchantFilter}
+                                        disabled={filterOptions.merchants.length === 0}
+                                    >
+                                        <SelectTrigger className="h-8 w-[160px] text-xs">
+                                            <SelectValue
+                                                placeholder={
+                                                    filterOptions.merchants.length === 0
+                                                        ? "No merchants"
+                                                        : "All merchants"
+                                                }
+                                            />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All merchants</SelectItem>
+                                            {filterOptions.merchants.map((m) => (
+                                                <SelectItem key={m} value={m}>
+                                                    {m}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-muted-foreground">Currency</span>
+                                    <Select
+                                        value={currencyFilter}
+                                        onValueChange={setCurrencyFilter}
+                                        disabled={filterOptions.currencies.length === 0}
+                                    >
+                                        <SelectTrigger className="h-8 w-[100px] text-xs">
+                                            <SelectValue
+                                                placeholder={
+                                                    filterOptions.currencies.length === 0
+                                                        ? "—"
+                                                        : "All"
+                                                }
+                                            />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All</SelectItem>
+                                            {filterOptions.currencies.map((c) => (
+                                                <SelectItem key={c} value={c}>
+                                                    {c}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                        </div>
 
                         <div className="overflow-x-auto">
                             <table className="w-full min-w-[720px] text-sm">
@@ -193,7 +294,9 @@ export default function CardSubscriptionPage() {
                                         <th className="px-3 py-2.5 lg:px-4">Subscription</th>
                                         <th className="px-3 py-2.5 lg:px-4">Amount</th>
                                         <th className="px-3 py-2.5 lg:px-4">Billing</th>
+                                        <th className="px-3 py-2.5 lg:px-4">Next charge</th>
                                         <th className="px-3 py-2.5 lg:px-4">Card</th>
+                                        <th className="px-3 py-2.5 lg:px-4">Auto pay</th>
                                         <th className="px-3 py-2.5 lg:px-4">Status</th>
                                         <th className="px-3 py-2.5 lg:px-4 text-right">
                                             <span className="sr-only">Actions</span>
@@ -201,83 +304,200 @@ export default function CardSubscriptionPage() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {MOCK_SUBSCRIPTIONS.map((sub) => (
-                                        <tr
-                                            key={sub.id}
-                                            className="group border-b border-border last:border-b-0 hover:bg-muted/25"
-                                        >
-                                            {/* Subscription + category */}
-                                            <td className="px-3 py-3.5 lg:px-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                                                        <CreditCard className="h-4 w-4" aria-hidden />
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <p className="truncate text-sm font-medium text-card-foreground">
-                                                            {sub.merchant}
-                                                        </p>
-                                                        <p className="text-xs text-muted-foreground">
-                                                            {sub.category} • {sub.tag}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </td>
-
-                                            {/* Amount */}
-                                            <td className="px-3 py-3.5 text-sm font-semibold tabular-nums text-card-foreground lg:px-4">
-                                                {sub.amount}
-                                            </td>
-
-                                            {/* Billing pattern */}
-                                            <td className="px-3 py-3.5 text-xs text-muted-foreground lg:px-4">
-                                                <p>{sub.billingDay}</p>
-                                                <p className="mt-0.5 text-[11px]">
-                                                    Next charge: <span className="font-medium text-card-foreground">{sub.nextCharge}</span>
-                                                </p>
-                                            </td>
-
-                                            {/* Card */}
-                                            <td className="px-3 py-3.5 lg:px-4">
-                                                <p className="text-xs font-medium text-card-foreground">
-                                                    {sub.cardName}
-                                                </p>
-                                                <p className="text-[11px] text-muted-foreground">
-                                                    {sub.cardMasked}
-                                                </p>
-                                            </td>
-
-                                            {/* Status */}
-                                            <td className="px-3 py-3.5 lg:px-4">
-                                                <Badge
-                                                    className={
-                                                        sub.status === "active"
-                                                            ? "rounded-full border-success/30 bg-success/10 px-3 py-1 text-[11px] font-medium text-success"
-                                                            : "rounded-full border-warning/30 bg-warning/10 px-3 py-1 text-[11px] font-medium text-warning"
-                                                    }
-                                                >
-                                                    {sub.status === "active" ? "Active" : "Paused"}
-                                                </Badge>
-                                            </td>
-
-                                            {/* Row actions – placeholder only for now */}
-                                            <td className="px-3 py-3.5 text-right lg:px-4">
-                                                <button
-                                                    type="button"
-                                                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-                                                    aria-label="More options"
-                                                >
-                                                    <MoreHorizontal className="h-4 w-4" aria-hidden />
-                                                </button>
+                                    {loading && (
+                                        <tr>
+                                            <td
+                                                colSpan={8}
+                                                className="px-3 py-8 text-center text-xs text-muted-foreground lg:px-4"
+                                            >
+                                                Loading subscriptions...
                                             </td>
                                         </tr>
-                                    ))}
+                                    )}
+                                    {!loading && filteredSchedules.length === 0 && (
+                                        <tr>
+                                            <td
+                                                colSpan={8}
+                                                className="px-3 py-8 text-center text-xs text-muted-foreground lg:px-4"
+                                            >
+                                                No subscriptions found.
+                                            </td>
+                                        </tr>
+                                    )}
+                                    {!loading &&
+                                        filteredSchedules.length > 0 &&
+                                        filteredSchedules.map((sub) => (
+                                            <tr
+                                                key={sub.id}
+                                                className="group border-b border-border last:border-b-0 hover:bg-muted/25"
+                                            >
+                                                {/* Subscription */}
+                                                <td className="px-3 py-3.5 lg:px-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                                            <CreditCard className="h-4 w-4" aria-hidden />
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className="truncate text-sm font-medium text-card-foreground">
+                                                                {sub.merchantName}
+                                                            </p>
+                                                            <p className="text-xs text-muted-foreground">
+                                                                {FREQ_LABELS[sub.recurrenceFrequency] ?? sub.recurrenceFrequency}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+
+                                                {/* Amount */}
+                                                <td className="px-3 py-3.5 lg:px-4">
+                                                    <p className="text-sm font-semibold tabular-nums text-card-foreground">
+                                                        {new Intl.NumberFormat(undefined, {
+                                                            style: "currency",
+                                                            currency: sub.currency,
+                                                            minimumFractionDigits: 2,
+                                                            maximumFractionDigits: 2,
+                                                        }).format(sub.amount)}
+                                                    </p>
+                                                </td>
+
+                                                {/* Billing */}
+                                                <td className="px-3 py-3.5 text-xs text-muted-foreground lg:px-4">
+                                                    <p>{sub.billingDayLabel}</p>
+                                                </td>
+
+                                                {/* Next charge */}
+                                                <td className="px-3 py-3.5 text-xs text-muted-foreground lg:px-4">
+                                                    <p className="font-medium text-card-foreground">
+                                                        {sub.nextDueDateLabel}
+                                                    </p>
+                                                </td>
+
+                                                {/* Card */}
+                                                <td className="px-3 py-3.5 lg:px-4">
+                                                    <p className="text-xs font-medium text-card-foreground">
+                                                        {sub.cardName}
+                                                    </p>
+                                                    <p className="text-[11px] text-muted-foreground">
+                                                        {sub.cardMaskedIdentifier}
+                                                    </p>
+                                                </td>
+
+                                                {/* Auto pay */}
+                                                <td className="px-3 py-3.5 lg:px-4">
+                                                    <Badge
+                                                        variant="outline"
+                                                        className={
+                                                            sub.autoPayEnabled
+                                                                ? "rounded-full border-success/30 bg-success/10 px-2.5 py-0.5 text-[10px] font-medium text-success"
+                                                                : "rounded-full border-muted bg-muted/50 px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+                                                        }
+                                                    >
+                                                        {sub.autoPayEnabled ? "On" : "Off"}
+                                                    </Badge>
+                                                </td>
+
+                                                {/* Status */}
+                                                <td className="px-3 py-3.5 lg:px-4">
+                                                    <Badge
+                                                        className={
+                                                            (sub.status?.toLowerCase() ?? "active") === "active"
+                                                                ? "rounded-full border-success/30 bg-success/10 px-3 py-1 text-[11px] font-medium text-success"
+                                                                : (sub.status?.toLowerCase() ?? "") === "cancelled"
+                                                                  ? "rounded-full border-destructive/30 bg-destructive/10 px-3 py-1 text-[11px] font-medium text-destructive"
+                                                                  : "rounded-full border-warning/30 bg-warning/10 px-3 py-1 text-[11px] font-medium text-warning"
+                                                        }
+                                                    >
+                                                        {(sub.status?.toLowerCase() ?? "active") === "active"
+                                                            ? "Active"
+                                                            : (sub.status?.toLowerCase() ?? "") === "cancelled"
+                                                              ? "Cancelled"
+                                                              : "Paused"}
+                                                    </Badge>
+                                                </td>
+
+                                                {/* Row actions */}
+                                                <td className="px-3 py-3.5 text-right lg:px-4">
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <button
+                                                                type="button"
+                                                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                                                                aria-label="More options"
+                                                            >
+                                                                <MoreHorizontal className="h-4 w-4" aria-hidden />
+                                                            </button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end">
+                                                            <DropdownMenuItem
+                                                                onClick={() =>
+                                                                    setAutoPayConfirm({
+                                                                        sub,
+                                                                        enable: !sub.autoPayEnabled,
+                                                                    })
+                                                                }
+                                                            >
+                                                                <Zap className="h-4 w-4" aria-hidden />
+                                                                {sub.autoPayEnabled
+                                                                    ? "Disable auto pay"
+                                                                    : "Enable auto pay"}
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem
+                                                                onClick={() =>
+                                                                    setEditSubscription(sub)
+                                                                }
+                                                            >
+                                                                Edit subscription
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem>
+                                                                {(sub.status?.toLowerCase() ?? "active") === "active"
+                                                                    ? "Pause"
+                                                                    : "Resume"}
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                </td>
+                                            </tr>
+                                        ))}
                                 </tbody>
                             </table>
                         </div>
                     </section>
                 </div>
             </main>
+            <AddSubscriptionDialog
+                open={addDialogOpen}
+                onOpenChange={setAddDialogOpen}
+                onCompleted={loadSchedules}
+            />
+            <EditSubscriptionDialog
+                open={!!editSubscription}
+                onOpenChange={(open) => !open && setEditSubscription(null)}
+                subscription={editSubscription}
+                onCompleted={loadSchedules}
+            />
+            <AlertDialog
+                open={!!autoPayConfirm}
+                onOpenChange={(open) => !open && setAutoPayConfirm(null)}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>
+                            {autoPayConfirm?.enable ? "Enable auto pay?" : "Disable auto pay?"}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {autoPayConfirm?.enable
+                                ? `When enabled, ${autoPayConfirm.sub.merchantName} will be charged automatically on the billing day (${autoPayConfirm.sub.billingDayLabel}) using your linked credit card.`
+                                : `When disabled, you will need to manually pay ${autoPayConfirm?.sub.merchantName} each billing cycle.`}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleConfirmAutoPay}>
+                            {autoPayConfirm?.enable ? "Enable" : "Disable"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }
-
