@@ -124,6 +124,7 @@ export type InstallmentPlanListItem = {
   description: string | null
   amountPerMonth: number
   totalAmount: number
+  remainingBalance: number
   currency: string
   months: number
   remainingMonths: number
@@ -251,12 +252,17 @@ export async function getInstallmentPlans(): Promise<InstallmentPlanListItem[]> 
     const amountPerMonth =
       months > 0 ? Math.round((payment.amount / months) * 100) / 100 : payment.amount
 
+    const remainingBalance = installments
+      .filter((i) => i.status !== "completed")
+      .reduce((sum, i) => sum + i.amount, 0)
+
     plans.push({
       id: paymentId,
       merchantName: payment.merchant?.name ?? "—",
       description: null,
       amountPerMonth,
       totalAmount: payment.amount,
+      remainingBalance,
       currency: payment.currency || "PHP",
       months,
       remainingMonths: remaining,
@@ -522,6 +528,173 @@ export async function createInstallmentPlan(params: {
   if (installmentsError) {
     await supabase.from("payment").delete().eq("id", payment.id)
     return { success: false, error: installmentsError.message }
+  }
+
+  return { success: true }
+}
+
+export type PayNextInstallmentResult =
+  | { success: true }
+  | { success: false; error: string }
+
+export async function payNextInstallment(params: {
+  paymentId: string
+  fromAccountId: string
+  feeAmount?: number
+}): Promise<PayNextInstallmentResult> {
+  const supabase = await createClient()
+  const feeAmount = Math.max(0, params.feeAmount ?? 0)
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return { success: false, error: "You must be signed in." }
+  }
+
+  const { data: payment, error: paymentError } = await supabase
+    .from("payment")
+    .select("id, user_id, currency")
+    .eq("id", params.paymentId)
+    .eq("user_id", user.id)
+    .single()
+
+  if (paymentError || !payment) {
+    return { success: false, error: "Payment not found." }
+  }
+
+  const { data: nextInstallment, error: fetchError } = await supabase
+    .from("payment_installment")
+    .select("id, amount, credit_card_id")
+    .eq("payment_id", params.paymentId)
+    .neq("status", "completed")
+    .order("due_date", { ascending: true })
+    .limit(1)
+    .single()
+
+  if (fetchError || !nextInstallment) {
+    return { success: false, error: "No pending installment to pay." }
+  }
+
+  const creditCardId = nextInstallment.credit_card_id
+  if (!creditCardId) {
+    return { success: false, error: "Installment is not linked to a credit card." }
+  }
+
+  const amount = nextInstallment.amount
+  const totalCharge = amount + feeAmount
+
+  const { data: account, error: accountError } = await supabase
+    .from("account")
+    .select("id, balance, user_id")
+    .eq("id", params.fromAccountId)
+    .single()
+
+  if (accountError || !account) {
+    return { success: false, error: "Account not found." }
+  }
+
+  if (account.user_id !== user.id) {
+    return { success: false, error: "You do not have access to this account." }
+  }
+
+  if ((account.balance ?? 0) < totalCharge) {
+    return { success: false, error: "Insufficient balance in the account." }
+  }
+
+  const { data: card, error: cardError } = await supabase
+    .from("credit_card")
+    .select("id, balance_owed, user_id")
+    .eq("id", creditCardId)
+    .single()
+
+  if (cardError || !card) {
+    return { success: false, error: "Credit card not found." }
+  }
+
+  if (card.user_id !== user.id) {
+    return { success: false, error: "You do not have access to this credit card." }
+  }
+
+  const now = new Date().toISOString()
+  const newAccountBalance = (account.balance ?? 0) - totalCharge
+  const newBalanceOwed = Math.max(0, (card.balance_owed ?? 0) - amount)
+
+  const { error: accountUpdateError } = await supabase
+    .from("account")
+    .update({ balance: newAccountBalance })
+    .eq("id", params.fromAccountId)
+
+  if (accountUpdateError) {
+    return { success: false, error: accountUpdateError.message }
+  }
+
+  const { error: cardUpdateError } = await supabase
+    .from("credit_card")
+    .update({ balance_owed: newBalanceOwed })
+    .eq("id", creditCardId)
+
+  if (cardUpdateError) {
+    await supabase
+      .from("account")
+      .update({ balance: account.balance })
+      .eq("id", params.fromAccountId)
+    return { success: false, error: cardUpdateError.message }
+  }
+
+  const { error: installmentUpdateError } = await supabase
+    .from("payment_installment")
+    .update({ status: "completed" as const, paid_at: now })
+    .eq("id", nextInstallment.id)
+
+  if (installmentUpdateError) {
+    await supabase
+      .from("account")
+      .update({ balance: account.balance })
+      .eq("id", params.fromAccountId)
+    await supabase
+      .from("credit_card")
+      .update({ balance_owed: card.balance_owed })
+      .eq("id", creditCardId)
+    return { success: false, error: installmentUpdateError.message }
+  }
+
+  const { error: cardPaymentError } = await supabase.from("card_payment").insert({
+    user_id: user.id,
+    from_account_id: params.fromAccountId,
+    credit_card_id: creditCardId,
+    payment_installment_id: nextInstallment.id,
+    amount,
+    currency: payment.currency ?? "PHP",
+    status: "completed" as const,
+    paid_at: now,
+  } as Database["public"]["Tables"]["card_payment"]["Insert"])
+
+  if (cardPaymentError) {
+    await supabase
+      .from("account")
+      .update({ balance: account.balance })
+      .eq("id", params.fromAccountId)
+    await supabase
+      .from("credit_card")
+      .update({ balance_owed: card.balance_owed })
+      .eq("id", creditCardId)
+    await supabase
+      .from("payment_installment")
+      .update({ status: "pending" as const, paid_at: null })
+      .eq("id", nextInstallment.id)
+    return { success: false, error: cardPaymentError.message }
+  }
+
+  if (feeAmount > 0) {
+    await supabase.from("transaction_fee").insert({
+      amount: feeAmount,
+      currency: payment.currency ?? "PHP",
+      fee_type: "other" as const,
+      payment_id: params.paymentId,
+    } as Database["public"]["Tables"]["transaction_fee"]["Insert"])
   }
 
   return { success: true }

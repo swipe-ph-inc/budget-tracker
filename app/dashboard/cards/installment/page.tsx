@@ -1,10 +1,10 @@
  "use client"
 
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { TopHeader } from "@/components/top-header"
 import { Badge } from "@/components/ui/badge"
-import { CreditCard, Calendar, Percent, MoreHorizontal } from "lucide-react"
+import { CreditCard, Percent, MoreHorizontal, Banknote } from "lucide-react"
 import {
     Breadcrumb,
     BreadcrumbList,
@@ -24,6 +24,14 @@ import {
     getInstallmentPlans,
     type InstallmentPlanListItem,
 } from "@/app/actions/credit-cards"
+import { AddInstallmentDialog } from "@/components/credit-card/installment/add-installment-dialog"
+import { PayInstallmentDialog } from "@/components/credit-card/installment/pay-installment-dialog"
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 const STATUS_FILTER_OPTIONS = [
     { value: "all", label: "All plans" },
@@ -33,29 +41,59 @@ const STATUS_FILTER_OPTIONS = [
 
 export default function CardInstallmentPage() {
     const [statusFilter, setStatusFilter] = useState<"all" | "ongoing" | "completed">("all")
+    const [cardFilter, setCardFilter] = useState<string>("all")
+    const [merchantFilter, setMerchantFilter] = useState<string>("all")
+    const [currencyFilter, setCurrencyFilter] = useState<string>("all")
     const [plans, setPlans] = useState<InstallmentPlanListItem[]>([])
     const [loading, setLoading] = useState(false)
+    const [addDialogOpen, setAddDialogOpen] = useState(false)
+    const [payDialogPlan, setPayDialogPlan] = useState<InstallmentPlanListItem | null>(null)
+
+    const loadPlans = useCallback(async () => {
+        setLoading(true)
+        try {
+            const data = await getInstallmentPlans()
+            setPlans(data)
+        } finally {
+            setLoading(false)
+        }
+    }, [])
 
     useEffect(() => {
-        const load = async () => {
-            setLoading(true)
-            try {
-                const data = await getInstallmentPlans()
-                setPlans(data)
-            } finally {
-                setLoading(false)
-            }
-        }
-        void load()
-    }, [])
+        void loadPlans()
+    }, [loadPlans])
+
+    const filterOptions = useMemo(() => {
+        const cards = Array.from(
+            new Map(
+                plans
+                    .filter((p) => p.cardId)
+                    .map((p) => [p.cardId, { id: p.cardId, name: p.cardName }]),
+            ).values(),
+        ).sort((a, b) => a.name.localeCompare(b.name))
+        const merchants = Array.from(
+            new Set(plans.map((p) => p.merchantName).filter((n) => n && n !== "—")),
+        ).sort()
+        const currencies = Array.from(new Set(plans.map((p) => p.currency).filter(Boolean))).sort()
+        return { cards, merchants, currencies }
+    }, [plans])
 
     const filteredInstallments = useMemo(
         () =>
-            plans.filter((plan) =>
-                statusFilter === "all" ? true : plan.status === statusFilter,
-            ),
-        [plans, statusFilter],
+            plans.filter((plan) => {
+                if (statusFilter !== "all" && plan.status !== statusFilter) return false
+                if (cardFilter !== "all" && plan.cardId !== cardFilter) return false
+                if (merchantFilter !== "all" && plan.merchantName !== merchantFilter) return false
+                if (currencyFilter !== "all" && plan.currency !== currencyFilter) return false
+                return true
+            }),
+        [plans, statusFilter, cardFilter, merchantFilter, currencyFilter],
     )
+
+    const handleOpenPayDialog = (plan: InstallmentPlanListItem) => {
+        if (plan.status === "completed") return
+        setPayDialogPlan(plan)
+    }
     return (
         <div className="min-h-screen bg-background">
             <TopHeader title="Card Installments" />
@@ -92,6 +130,7 @@ export default function CardInstallmentPage() {
                             </div>
                             <button
                                 type="button"
+                                onClick={() => setAddDialogOpen(true)}
                                 className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10"
                             >
                                 <Percent className="h-3.5 w-3.5" aria-hidden />
@@ -100,29 +139,109 @@ export default function CardInstallmentPage() {
                         </header>
 
                         {/* Filters */}
-                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
+                        <div className="flex flex-col gap-3 border-b border-border pb-3">
                             <p className="text-xs text-muted-foreground">
-                                Filter your installment plans by status.
+                                Filter your installment plans.
                             </p>
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs text-muted-foreground">Status</span>
-                                <Select
-                                    value={statusFilter}
-                                    onValueChange={(v) =>
-                                        setStatusFilter(v as "all" | "ongoing" | "completed")
-                                    }
-                                >
-                                    <SelectTrigger className="h-8 w-[150px] text-xs">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {STATUS_FILTER_OPTIONS.map((opt) => (
-                                            <SelectItem key={opt.value} value={opt.value}>
-                                                {opt.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                            <div className="flex flex-wrap items-center gap-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-muted-foreground">Status</span>
+                                    <Select
+                                        value={statusFilter}
+                                        onValueChange={(v) =>
+                                            setStatusFilter(v as "all" | "ongoing" | "completed")
+                                        }
+                                    >
+                                        <SelectTrigger className="h-8 w-[140px] text-xs">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {STATUS_FILTER_OPTIONS.map((opt) => (
+                                                <SelectItem key={opt.value} value={opt.value}>
+                                                    {opt.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-muted-foreground">Card</span>
+                                    <Select
+                                        value={cardFilter}
+                                        onValueChange={setCardFilter}
+                                        disabled={filterOptions.cards.length === 0}
+                                    >
+                                        <SelectTrigger className="h-8 w-[160px] text-xs">
+                                            <SelectValue
+                                                placeholder={
+                                                    filterOptions.cards.length === 0
+                                                        ? "No cards"
+                                                        : "All cards"
+                                                }
+                                            />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All cards</SelectItem>
+                                            {filterOptions.cards.map((c) => (
+                                                <SelectItem key={c.id} value={c.id}>
+                                                    {c.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-muted-foreground">Merchant</span>
+                                    <Select
+                                        value={merchantFilter}
+                                        onValueChange={setMerchantFilter}
+                                        disabled={filterOptions.merchants.length === 0}
+                                    >
+                                        <SelectTrigger className="h-8 w-[160px] text-xs">
+                                            <SelectValue
+                                                placeholder={
+                                                    filterOptions.merchants.length === 0
+                                                        ? "No merchants"
+                                                        : "All merchants"
+                                                }
+                                            />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All merchants</SelectItem>
+                                            {filterOptions.merchants.map((m) => (
+                                                <SelectItem key={m} value={m}>
+                                                    {m}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-muted-foreground">Currency</span>
+                                    <Select
+                                        value={currencyFilter}
+                                        onValueChange={setCurrencyFilter}
+                                        disabled={filterOptions.currencies.length === 0}
+                                    >
+                                        <SelectTrigger className="h-8 w-[100px] text-xs">
+                                            <SelectValue
+                                                placeholder={
+                                                    filterOptions.currencies.length === 0
+                                                        ? "—"
+                                                        : "All"
+                                                }
+                                            />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All</SelectItem>
+                                            {filterOptions.currencies.map((c) => (
+                                                <SelectItem key={c} value={c}>
+                                                    {c}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
                         </div>
 
@@ -186,14 +305,27 @@ export default function CardInstallmentPage() {
                                                 </div>
                                             </td>
 
-                                            {/* Monthly amount */}
-                                            <td className="px-3 py-3.5 text-sm font-semibold tabular-nums text-card-foreground lg:px-4">
-                                                {new Intl.NumberFormat(undefined, {
-                                                    style: "currency",
-                                                    currency: plan.currency,
-                                                    minimumFractionDigits: 2,
-                                                    maximumFractionDigits: 2,
-                                                }).format(plan.amountPerMonth)}
+                                            {/* Monthly amount and remaining balance */}
+                                            <td className="px-3 py-3.5 lg:px-4">
+                                                <p className="text-sm font-semibold tabular-nums text-card-foreground">
+                                                    {new Intl.NumberFormat(undefined, {
+                                                        style: "currency",
+                                                        currency: plan.currency,
+                                                        minimumFractionDigits: 2,
+                                                        maximumFractionDigits: 2,
+                                                    }).format(plan.amountPerMonth)}
+                                                </p>
+                                                {plan.remainingMonths > 0 && (
+                                                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                                                        {new Intl.NumberFormat(undefined, {
+                                                            style: "currency",
+                                                            currency: plan.currency,
+                                                            minimumFractionDigits: 2,
+                                                            maximumFractionDigits: 2,
+                                                        }).format(plan.remainingBalance)}{" "}
+                                                        left
+                                                    </p>
+                                                )}
                                             </td>
 
                                             {/* Total / term */}
@@ -255,15 +387,28 @@ export default function CardInstallmentPage() {
                                                 </Badge>
                                             </td>
 
-                                            {/* Row actions – placeholder only for now */}
+                                            {/* Row actions */}
                                             <td className="px-3 py-3.5 text-right lg:px-4">
-                                                <button
-                                                    type="button"
-                                                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-                                                    aria-label="More options"
-                                                >
-                                                    <MoreHorizontal className="h-4 w-4" aria-hidden />
-                                                </button>
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <button
+                                                            type="button"
+                                                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                                                            aria-label="More options"
+                                                        >
+                                                            <MoreHorizontal className="h-4 w-4" aria-hidden />
+                                                        </button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        <DropdownMenuItem
+                                                            onClick={() => handleOpenPayDialog(plan)}
+                                                            disabled={plan.status === "completed"}
+                                                        >
+                                                            <Banknote className="h-4 w-4" aria-hidden />
+                                                            Pay for this month
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
                                             </td>
                                         </tr>
                                     ))}
@@ -273,6 +418,17 @@ export default function CardInstallmentPage() {
                     </section>
                 </div>
             </main>
+            <AddInstallmentDialog
+                open={addDialogOpen}
+                onOpenChange={setAddDialogOpen}
+                onCompleted={loadPlans}
+            />
+            <PayInstallmentDialog
+                open={!!payDialogPlan}
+                onOpenChange={(open) => !open && setPayDialogPlan(null)}
+                plan={payDialogPlan}
+                onCompleted={loadPlans}
+            />
         </div>
     )
 }
