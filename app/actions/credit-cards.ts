@@ -128,6 +128,7 @@ export type InstallmentPlanListItem = {
   currency: string
   months: number
   remainingMonths: number
+  nextDueDate: string
   nextDueDateLabel: string
   cardId: string
   cardName: string
@@ -235,6 +236,7 @@ export async function getInstallmentPlans(): Promise<InstallmentPlanListItem[]> 
     const remaining = installments.filter((i) => i.status !== "completed").length
     const status: "ongoing" | "completed" = remaining > 0 ? "ongoing" : "completed"
 
+    let nextDueDate = ""
     let nextDueLabel = "Paid off"
     if (remaining > 0) {
       const next = installments
@@ -242,6 +244,7 @@ export async function getInstallmentPlans(): Promise<InstallmentPlanListItem[]> 
         .map((i) => new Date(i.dueDate))
         .sort((a, b) => a.getTime() - b.getTime())[0]
       if (next) {
+        nextDueDate = next.toISOString().slice(0, 10)
         nextDueLabel = next.toLocaleDateString(undefined, {
           month: "short",
           day: "2-digit",
@@ -266,6 +269,7 @@ export async function getInstallmentPlans(): Promise<InstallmentPlanListItem[]> 
       currency: payment.currency || "PHP",
       months,
       remainingMonths: remaining,
+      nextDueDate,
       nextDueDateLabel: nextDueLabel,
       cardId: card?.id ?? "",
       cardName: card?.name ?? "Credit Card",
@@ -913,6 +917,127 @@ export async function payNextInstallment(params: {
       fee_type: "other" as const,
       payment_id: params.paymentId,
     } as Database["public"]["Tables"]["transaction_fee"]["Insert"])
+  }
+
+  return { success: true }
+}
+
+export type PayCreditCardResult =
+  | { success: true }
+  | { success: false; error: string }
+
+/** Pay off (or partially pay) a credit card from an account. Inserts card_payment and updates account balance and credit_card balance_owed. */
+export async function payCreditCard(params: {
+  creditCardId: string
+  fromAccountId: string
+  amount: number
+  note?: string | null
+}): Promise<PayCreditCardResult> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+  if (authError || !user) {
+    return { success: false, error: "You must be signed in." }
+  }
+
+  if (!params.creditCardId || !params.fromAccountId) {
+    return { success: false, error: "Credit card and payment account are required." }
+  }
+  if (!Number.isFinite(params.amount) || params.amount <= 0) {
+    return { success: false, error: "Amount must be greater than zero." }
+  }
+
+  const { data: account, error: accountError } = await supabase
+    .from("account")
+    .select("id, balance, currency, user_id")
+    .eq("id", params.fromAccountId)
+    .single()
+
+  if (accountError || !account) {
+    return { success: false, error: "Account not found." }
+  }
+  if (account.user_id !== user.id) {
+    return { success: false, error: "You do not have access to this account." }
+  }
+
+  const accountBalance = account.balance ?? 0
+  if (accountBalance < params.amount) {
+    return { success: false, error: "Insufficient balance in the selected account." }
+  }
+
+  const { data: card, error: cardError } = await supabase
+    .from("credit_card")
+    .select("id, balance_owed, currency, user_id")
+    .eq("id", params.creditCardId)
+    .single()
+
+  if (cardError || !card) {
+    return { success: false, error: "Credit card not found." }
+  }
+  if (card.user_id !== user.id) {
+    return { success: false, error: "You do not have access to this credit card." }
+  }
+
+  const balanceOwed = card.balance_owed ?? 0
+  const payAmount = Math.min(params.amount, balanceOwed)
+  if (payAmount <= 0) {
+    return { success: false, error: "This card has no balance to pay." }
+  }
+
+  const now = new Date().toISOString()
+  const newAccountBalance = accountBalance - payAmount
+  const newBalanceOwed = Math.max(0, balanceOwed - payAmount)
+  const currency = card.currency ?? account.currency ?? "PHP"
+
+  const { error: accountUpdateError } = await supabase
+    .from("account")
+    .update({ balance: newAccountBalance })
+    .eq("id", params.fromAccountId)
+    .eq("user_id", user.id)
+
+  if (accountUpdateError) {
+    return { success: false, error: accountUpdateError.message }
+  }
+
+  const { error: cardUpdateError } = await supabase
+    .from("credit_card")
+    .update({ balance_owed: newBalanceOwed })
+    .eq("id", params.creditCardId)
+    .eq("user_id", user.id)
+
+  if (cardUpdateError) {
+    await supabase
+      .from("account")
+      .update({ balance: accountBalance })
+      .eq("id", params.fromAccountId)
+    return { success: false, error: cardUpdateError.message }
+  }
+
+  const { error: insertError } = await supabase.from("card_payment").insert({
+    user_id: user.id,
+    from_account_id: params.fromAccountId,
+    credit_card_id: params.creditCardId,
+    payment_installment_id: null,
+    amount: payAmount,
+    currency,
+    status: "completed",
+    paid_at: now,
+    note: params.note?.trim() || null,
+  } as Database["public"]["Tables"]["card_payment"]["Insert"])
+
+  if (insertError) {
+    await supabase
+      .from("account")
+      .update({ balance: accountBalance })
+      .eq("id", params.fromAccountId)
+    await supabase
+      .from("credit_card")
+      .update({ balance_owed: balanceOwed })
+      .eq("id", params.creditCardId)
+    return { success: false, error: insertError.message }
   }
 
   return { success: true }

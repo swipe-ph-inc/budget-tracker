@@ -14,9 +14,18 @@ import {
   type MerchantCategoryOption,
   type MerchantWithCategory,
 } from "@/app/actions/merchants"
-import { createPayment, getPayments, type PaymentListItem } from "@/app/actions/transaction"
+import { getSubscriptionSchedules, getInstallmentPlans } from "@/app/actions/credit-cards"
+import { createPayment, getPayments } from "@/app/actions/transaction"
 import type { Tables } from "@/lib/supabase/database.types"
 import { toast } from "@/hooks/use-toast"
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +34,9 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { ManageMerchantDialog } from "@/components/account/manage-merchant-dialog"
 import { ManageMerchantCategoryDialog } from "@/components/payment/payment/manage-merchant-category-dialog"
+import { AddSubscriptionDialog } from "@/components/credit-card/subscription/add-subscription-dialog"
+import { AddInstallmentDialog } from "@/components/credit-card/installment/add-installment-dialog"
+import { PayCreditCardDialog } from "@/components/credit-card/pay-credit-card-dialog"
 
 type AccountRow = Tables<"account">
 type CreditCardRow = Tables<"credit_card">
@@ -65,14 +77,31 @@ function formatAmountInput(value: string): string {
   return decPart ? `${formattedInt}.${decPart.slice(0, 2)}` : formattedInt
 }
 
-const paymentTabs = [
-  { label: "Payment", icon: WalletCards, href: "/dashboard/payments/payment", active: true },
-  { label: "Subscription Payment", icon: CalendarRange, href: "#", active: false },
-  { label: "Installment Payment", icon: Calendar, href: "#", active: false },
-  { label: "Credit Card Payment", icon: CreditCard, href: "#", active: false },
-]
+const paymentTabs: {
+  label: string
+  icon: typeof WalletCards
+  href?: string
+  active: boolean
+  dialog?: "subscription" | "installment" | "credit_card_payment"
+}[] = [
+    { label: "Payment", icon: WalletCards, href: "/dashboard/payments/payment", active: true },
+    { label: "Subscription Payment", icon: CalendarRange, active: false, dialog: "subscription" },
+    { label: "Installment Payment", icon: Calendar, active: false, dialog: "installment" },
+    { label: "Credit Card Payment", icon: CreditCard, active: false, dialog: "credit_card_payment" },
+  ]
 
-const RECENT_PAYMENTS_LIMIT = 5
+const RECENT_PAYMENTS_LIMIT = 10
+
+type RecentActivityItem = {
+  id: string
+  type: "payment" | "subscription" | "installment"
+  merchantName: string
+  amount: number
+  currency: string
+  status: string
+  accountDisplay: string
+  sortDate: string
+}
 
 function formatPaymentAmount(amount: number, currency: string): string {
   return new Intl.NumberFormat(undefined, {
@@ -114,7 +143,7 @@ export default function PaymentPage() {
   const [accountsLoading, setAccountsLoading] = useState(true)
   const [creditCardsLoading, setCreditCardsLoading] = useState(true)
   const [merchantsLoading, setMerchantsLoading] = useState(true)
-  const [recentPayments, setRecentPayments] = useState<PaymentListItem[]>([])
+  const [recentActivity, setRecentActivity] = useState<RecentActivityItem[]>([])
   const [recentPaymentsLoading, setRecentPaymentsLoading] = useState(true)
 
   const [fundingSource, setFundingSource] = useState<"account" | "credit_card">("account")
@@ -134,6 +163,9 @@ export default function PaymentPage() {
   const [manageMerchantOpen, setManageMerchantOpen] = useState(false)
   const [manageCategoryOpen, setManageCategoryOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
+  const [addSubscriptionOpen, setAddSubscriptionOpen] = useState(false)
+  const [addInstallmentOpen, setAddInstallmentOpen] = useState(false)
+  const [payCreditCardOpen, setPayCreditCardOpen] = useState(false)
 
   const selectedAccount = accounts.find((a) => a.id === fromAccountId)
   const selectedCard = creditCards.find((c) => c.id === fromCreditCardId)
@@ -167,18 +199,63 @@ export default function PaymentPage() {
     setMerchantsLoading(true)
     setRecentPaymentsLoading(true)
     try {
-      const [accountsData, creditCardsData, categoriesData, merchantsData, paymentsData] = await Promise.all([
+      const [
+        accountsData,
+        creditCardsData,
+        categoriesData,
+        merchantsData,
+        paymentsData,
+        schedulesData,
+        plansData,
+      ] = await Promise.all([
         getAccounts(),
         getCreditCards(),
         getMerchantCategories(),
         getMerchantsWithCategories(),
         getPayments(),
+        getSubscriptionSchedules(),
+        getInstallmentPlans(),
       ])
       setAccounts(accountsData ?? [])
       setCreditCards(creditCardsData ?? [])
       setCategories(categoriesData ?? [])
       setMerchants(merchantsData ?? [])
-      setRecentPayments((paymentsData ?? []).slice(0, RECENT_PAYMENTS_LIMIT))
+      const payments: RecentActivityItem[] = (paymentsData ?? []).map((p) => ({
+        id: `payment-${p.id}`,
+        type: "payment",
+        merchantName: p.merchantName,
+        amount: p.amount,
+        currency: p.currency,
+        status: p.status,
+        accountDisplay: p.virtualAccount ?? p.fromAccountMasked ?? "—",
+        sortDate: p.createdAt,
+      }))
+      const subscriptions: RecentActivityItem[] = (schedulesData ?? []).map((s) => ({
+        id: `subscription-${s.id}`,
+        type: "subscription",
+        merchantName: s.merchantName,
+        amount: s.amount,
+        currency: s.currency,
+        status: "Subscription",
+        accountDisplay: s.cardMaskedIdentifier,
+        sortDate: s.nextDueDate,
+      }))
+      const installments: RecentActivityItem[] = (plansData ?? [])
+        .filter((plan) => plan.status === "ongoing" && plan.nextDueDate)
+        .map((plan) => ({
+          id: `installment-${plan.id}`,
+          type: "installment",
+          merchantName: plan.merchantName,
+          amount: plan.amountPerMonth,
+          currency: plan.currency,
+          status: "Installment",
+          accountDisplay: plan.cardMaskedIdentifier,
+          sortDate: plan.nextDueDate,
+        }))
+      const combined = [...payments, ...subscriptions, ...installments].sort(
+        (a, b) => new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime()
+      )
+      setRecentActivity(combined.slice(0, RECENT_PAYMENTS_LIMIT))
       setFromAccountId((prev) => {
         const list = accountsData ?? []
         if (list.length === 0) return ""
@@ -329,27 +406,69 @@ export default function PaymentPage() {
     <>
       <TopHeader title="Payment" />
       <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6">
+        <Breadcrumb className="mb-4">
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link href="/dashboard">Dashboard</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link href="/dashboard/payments/payment">Payments</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>Payment</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
         <div className="flex flex-col gap-4 lg:flex-row lg:gap-6">
           {/* Left Column - Tabs + Providers */}
           <div className="min-w-0 w-full shrink-0 flex flex-col gap-4 lg:w-[320px] lg:gap-5">
             {/* Payment Type Tabs */}
             <div className="rounded-xl border border-border bg-card p-3 sm:p-4">
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
-                {paymentTabs.map((tab) => (
-                  <a
-                    key={tab.label}
-                    href={tab.href}
-                    className={`flex flex-col items-center gap-2 rounded-xl px-2 py-3 text-center transition-colors ${tab.active
-                      ? "bg-secondary text-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                      }`}
-                  >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary">
-                      <tab.icon className="h-5 w-5" />
-                    </div>
-                    <span className="text-xs font-medium">{tab.label}</span>
-                  </a>
-                ))}
+                {paymentTabs.map((tab) =>
+                  tab.dialog ? (
+                    <button
+                      key={tab.label}
+                      type="button"
+                      onClick={() =>
+                        tab.dialog === "subscription"
+                          ? setAddSubscriptionOpen(true)
+                          : tab.dialog === "installment"
+                            ? setAddInstallmentOpen(true)
+                            : setPayCreditCardOpen(true)
+                      }
+                      className={`flex flex-col items-center gap-2 rounded-xl px-2 py-3 text-center transition-colors ${tab.active
+                        ? "bg-secondary text-foreground"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        }`}
+                    >
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary">
+                        <tab.icon className="h-5 w-5" />
+                      </div>
+                      <span className="text-xs font-medium">{tab.label}</span>
+                    </button>
+                  ) : (
+                    <Link
+                      key={tab.label}
+                      href={tab.href ?? "#"}
+                      className={`flex flex-col items-center gap-2 rounded-xl px-2 py-3 text-center transition-colors ${tab.active
+                        ? "bg-secondary text-foreground"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        }`}
+                    >
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary">
+                        <tab.icon className="h-5 w-5" />
+                      </div>
+                      <span className="text-xs font-medium">{tab.label}</span>
+                    </Link>
+                  )
+                )}
               </div>
             </div>
 
@@ -445,37 +564,37 @@ export default function PaymentPage() {
                   <div className="flex min-w-[200px] items-center justify-center rounded-xl border border-border p-6 text-sm text-muted-foreground">
                     Loading...
                   </div>
-                ) : recentPayments.length === 0 ? (
+                ) : recentActivity.length === 0 ? (
                   <div className="flex min-w-[200px] items-center justify-center rounded-xl border border-border p-6 text-sm text-muted-foreground">
-                    No payments yet
+                    No payments or upcoming items yet
                   </div>
                 ) : (
-                  recentPayments.map((p) => {
-                    const isSuccessful = p.status.toLowerCase() === "completed"
-                    const accountDisplay = p.virtualAccount ?? p.fromAccountMasked ?? "—"
+                  recentActivity.map((item) => {
+                    const isPayment = item.type === "payment"
+                    const isCompleted = isPayment && item.status.toLowerCase() === "completed"
+                    const isUpcoming = item.type === "subscription" || item.type === "installment"
+                    const badgeClass = isCompleted
+                      ? "border-primary/30 bg-primary/10 text-primary"
+                      : isUpcoming
+                        ? "border-muted-foreground/30 bg-muted/50 text-muted-foreground"
+                        : "border-warning/30 bg-warning/10 text-warning"
                     return (
-                      <div key={p.id} className="flex min-w-[180px] shrink-0 items-center gap-3 rounded-xl border border-border p-3 sm:min-w-[200px]">
+                      <div key={item.id} className="flex min-w-[180px] shrink-0 items-center gap-3 rounded-xl border border-border p-3 sm:min-w-[200px]">
                         <Avatar className="h-10 w-10 shrink-0">
                           <AvatarFallback className="bg-accent text-xs font-medium text-accent-foreground">
-                            {initials(p.merchantName) || "—"}
+                            {initials(item.merchantName) || "—"}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-card-foreground truncate">{p.merchantName}</p>
-                          <p className="text-xs text-muted-foreground truncate">{accountDisplay}</p>
+                          <p className="text-sm font-medium text-card-foreground truncate">{item.merchantName}</p>
+                          <p className="text-xs text-muted-foreground truncate">{item.accountDisplay}</p>
                         </div>
                         <div className="text-right shrink-0">
                           <p className="text-sm font-semibold text-card-foreground">
-                            {formatPaymentAmount(p.amount, p.currency)}
+                            {formatPaymentAmount(item.amount, item.currency)}
                           </p>
-                          <Badge
-                            variant="outline"
-                            className={`text-[10px] ${isSuccessful
-                                ? "border-primary/30 bg-primary/10 text-primary"
-                                : "border-warning/30 bg-warning/10 text-warning"
-                              }`}
-                          >
-                            {p.status}
+                          <Badge variant="outline" className={`text-[10px] ${badgeClass}`}>
+                            {item.status}
                           </Badge>
                         </div>
                       </div>
@@ -708,15 +827,38 @@ export default function PaymentPage() {
                               : "border-border bg-card hover:bg-accent/50 hover:border-accent-foreground/20"
                               }`}
                           >
-                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[hsl(220,70%,40%)] to-[hsl(220,70%,25%)]">
-                              <CreditCard className="h-4 w-4 text-[hsl(0,0%,100%)]" />
+                            <div className="flex items-center gap-2">
+                              {card.card_network_url ? (
+                                <img
+                                  src={card.card_network_url}
+                                  alt=""
+                                  className="h-8 w-8 shrink-0 rounded-lg object-contain"
+                                />
+                              ) : (
+                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[hsl(145,50%,25%)] to-[hsl(145,60%,18%)]">
+                                  <CreditCard className="h-4 w-4 text-[hsl(0,0%,100%)]" />
+                                </div>
+                              )}
                             </div>
                             <div className="min-w-0 flex-1 space-y-0.5">
                               <p className="truncate text-xs font-medium text-card-foreground">{card.name}</p>
-                              <p className="text-sm font-bold text-card-foreground text-primary">
+                              <p className="text-sm font-bold text-card-foreground">
                                 {formatAvailableCredit(card)} avail.
                               </p>
-                              <p className="truncate text-xs text-muted-foreground">{card.masked_identifier}</p>
+                              <div className="flex items-center gap-1">
+                                <p className="truncate text-xs text-muted-foreground">{card.masked_identifier}</p>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleCopy(card.masked_identifier)
+                                  }}
+                                  className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                                  aria-label="Copy card number"
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </button>
+                              </div>
                             </div>
                           </div>
                         )
@@ -890,6 +1032,21 @@ export default function PaymentPage() {
       <ManageMerchantDialog
         open={manageMerchantOpen}
         onOpenChange={setManageMerchantOpen}
+        onCompleted={fetchData}
+      />
+      <AddSubscriptionDialog
+        open={addSubscriptionOpen}
+        onOpenChange={setAddSubscriptionOpen}
+        onCompleted={fetchData}
+      />
+      <AddInstallmentDialog
+        open={addInstallmentOpen}
+        onOpenChange={setAddInstallmentOpen}
+        onCompleted={fetchData}
+      />
+      <PayCreditCardDialog
+        open={payCreditCardOpen}
+        onOpenChange={setPayCreditCardOpen}
         onCompleted={fetchData}
       />
     </>

@@ -6,6 +6,7 @@ import { CreditCard } from "lucide-react"
 import Link from "next/link"
 import {
   getPayments,
+  getCardPayments,
   type PaymentListItem,
   type GetPaymentsFilters,
 } from "@/app/actions/transaction"
@@ -76,6 +77,20 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
+function paymentTypeLabel(p: PaymentListItem): string {
+  if (p.source === "card_payment") {
+    return p.merchantName.includes("Installment") ? "Installment" : "Credit card"
+  }
+  switch (p.paymentType) {
+    case "subscription":
+      return "Subscription"
+    case "installment":
+      return "Installment"
+    default:
+      return "Payment"
+  }
+}
+
 export default function PaymentsPage() {
   const [payments, setPayments] = useState<PaymentListItem[]>([])
   const [accounts, setAccounts] = useState<AccountRow[]>([])
@@ -92,8 +107,25 @@ export default function PaymentsPage() {
   const fetchPayments = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await getPayments(filters)
-      setPayments(data)
+      const [paymentsData, cardPaymentsData] = await Promise.all([
+        getPayments(filters),
+        getCardPayments({
+          status: filters.status,
+          fromAccountId: filters.fromAccountId,
+          dateFrom: filters.dateFrom,
+          dateTo: filters.dateTo,
+          limit: filters.limit ?? 100,
+        }),
+      ])
+      const combined: PaymentListItem[] = [
+        ...(paymentsData ?? []),
+        ...(cardPaymentsData ?? []),
+      ].sort((a, b) => {
+        const dateA = new Date(a.paidAt ?? a.createdAt).getTime()
+        const dateB = new Date(b.paidAt ?? b.createdAt).getTime()
+        return dateB - dateA
+      })
+      setPayments(combined)
     } finally {
       setLoading(false)
     }
@@ -293,7 +325,8 @@ export default function PaymentsPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Date</TableHead>
-                      <TableHead>Merchant</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Merchant / Description</TableHead>
                       <TableHead>From account</TableHead>
                       <TableHead>Amount</TableHead>
                       <TableHead>Fee</TableHead>
@@ -306,6 +339,9 @@ export default function PaymentsPage() {
                       <TableRow key={p.id}>
                         <TableCell className="whitespace-nowrap text-muted-foreground">
                           {formatDate(p.paidAt ?? p.createdAt)}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          <span className="text-xs">{paymentTypeLabel(p)}</span>
                         </TableCell>
                         <TableCell>
                           <p className="max-w-[160px] truncate font-medium text-card-foreground">
@@ -353,9 +389,14 @@ export default function PaymentsPage() {
                       className="flex flex-col gap-2 px-3 py-4"
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <p className="font-medium text-card-foreground truncate">
-                          {p.merchantName}
-                        </p>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-card-foreground truncate">
+                            {p.merchantName}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {paymentTypeLabel(p)}
+                          </p>
+                        </div>
                         <StatusBadge status={p.status} />
                       </div>
                       <div className="flex items-center justify-between text-sm text-muted-foreground">

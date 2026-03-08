@@ -13,6 +13,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
 import { AddRecipientDialog } from "@/components/payment/transfer/add-recipient-dialog"
 import { getRecipients, type Recipient } from "@/app/actions/recipient"
 import { getAccounts } from "@/app/actions/accounts"
@@ -218,80 +226,76 @@ export default function TransferPage() {
     <>
       <TopHeader title="Transfer" />
       <div className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <Breadcrumb className="mb-4">
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link href="/dashboard">Dashboard</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link href="/dashboard/payments/payment">Payments</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>Transfer</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Left Column - Tabs + Recipients */}
           <div className="w-full lg:w-[320px] shrink-0 flex flex-col gap-5">
-            {/* Payment Type Tabs */}
-            <div className="rounded-xl border border-border bg-card p-4">
-              <div className="grid grid-cols-4 gap-3">
-                {paymentTabs.map((tab) => (
-                  <a
-                    key={tab.label}
-                    href={tab.href}
-                    className={`flex flex-col items-center gap-2 rounded-xl px-2 py-3 text-center transition-colors ${tab.active
-                      ? "bg-secondary text-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                      }`}
-                  >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary">
-                      <tab.icon className="h-5 w-5" />
-                    </div>
-                    <span className="text-xs font-medium">{tab.label}</span>
-                  </a>
-                ))}
+            {/* Recipients section: fixed height, scrollable list, same card style as Recent Transfer */}
+            <div className="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card p-4">
+              {/* Search - fixed at top */}
+              <div className="flex shrink-0 gap-2 pb-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Search account"
+                    className="h-10 w-full rounded-lg border border-input bg-background pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+                <button
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-input bg-background bg-primary text-white hover:text-white"
+                  onClick={() => setAddRecipientOpen(true)}
+                >
+                  <Plus className="h-4 w-4 text-white" />
+                </button>
+              </div>
+
+              {/* Recipients list - scrollable */}
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                {recipientsLoading ? (
+                  <div className="py-6 text-center text-sm text-muted-foreground">Loading recipients...</div>
+                ) : recipients.length === 0 ? (
+                  <div className="py-6 text-center text-sm text-muted-foreground">No recipients yet. Add one below.</div>
+                ) : (
+                  <div className="flex flex-col gap-2 pr-1">
+                    {recipients.map((r) => (
+                      <button
+                        key={r.id}
+                        type="button"
+                        className="flex items-center gap-3 rounded-xl border border-border bg-background/80 p-3 text-left transition-colors hover:bg-accent"
+                      >
+                        <Avatar className="h-10 w-10 shrink-0">
+                          <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${r.display_name}&backgroundColor=e8f5e9`} alt={r.display_name} />
+                          <AvatarFallback className="bg-secondary text-xs font-medium text-secondary-foreground">{initials(r.display_name)}</AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-card-foreground">{r.display_name}</p>
+                          <p className="truncate text-xs text-muted-foreground">{r.account_number}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
-
-            {/* Search */}
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Search account"
-                  className="h-10 w-full rounded-lg border border-input bg-card pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-              </div>
-              <button className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-input bg-card text-muted-foreground hover:text-foreground">
-                <SlidersHorizontal className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Recipients List */}
-            <div className="flex flex-col gap-2">
-              {recipientsLoading ? (
-                <div className="py-6 text-center text-sm text-muted-foreground">Loading recipients...</div>
-              ) : recipients.length === 0 ? (
-                <div className="py-6 text-center text-sm text-muted-foreground">No recipients yet. Add one below.</div>
-              ) : (
-                recipients.map((r) => (
-                  <button
-                    key={r.id}
-                    type="button"
-                    className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 text-left transition-colors hover:bg-accent"
-                  >
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${r.display_name}&backgroundColor=e8f5e9`} alt={r.display_name} />
-                      <AvatarFallback className="bg-secondary text-xs font-medium text-secondary-foreground">{initials(r.display_name)}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="text-sm font-medium text-card-foreground">{r.display_name}</p>
-                      <p className="text-xs text-muted-foreground">{r.account_number}</p>
-                    </div>
-                  </button>
-                ))
-              )}
-            </div>
-
-            {/* Add New Recipient */}
-            <button
-              type="button"
-              onClick={() => setAddRecipientOpen(true)}
-              className="flex items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-            >
-              <Plus className="h-4 w-4" />
-              Add New Recipient
-            </button>
 
             <AddRecipientDialog
               open={addRecipientOpen}

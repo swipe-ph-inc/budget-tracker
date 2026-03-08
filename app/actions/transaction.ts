@@ -854,6 +854,10 @@ export type PaymentListItem = {
   feeAmount: number
   note: string | null
   virtualAccount: string | null
+  /** one_time | recurring | subscription | installment; only for payment table rows */
+  paymentType?: string
+  /** 'payment' | 'card_payment'; card_payment = credit card payoff or installment payment */
+  source?: "payment" | "card_payment"
 }
 
 export type GetPaymentsFilters = {
@@ -892,6 +896,7 @@ export async function getPayments(
       fee_amount,
       note,
       virtual_account,
+      payment_type,
       merchant_id,
       from_account_id,
       from_credit_card_id,
@@ -960,6 +965,118 @@ export async function getPayments(
       feeAmount: p.fee_amount ?? 0,
       note: p.note,
       virtualAccount: p.virtual_account,
+      paymentType: (p as { payment_type?: string }).payment_type ?? undefined,
+      source: "payment",
+    }
+  })
+}
+
+export type CardPaymentFilters = {
+  status?: string
+  fromAccountId?: string
+  dateFrom?: string
+  dateTo?: string
+  limit?: number
+}
+
+/** Card payments: credit card payoffs and installment payments. Returns same shape as PaymentListItem with source: 'card_payment'. */
+export async function getCardPayments(
+  filters?: CardPaymentFilters
+): Promise<PaymentListItem[]> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return []
+  }
+
+  let query = (supabase as { from: (t: string) => ReturnType<typeof supabase["from"]> })
+    .from("card_payment")
+    .select(
+      `
+        id,
+        amount,
+        currency,
+        status,
+        paid_at,
+        created_at,
+        note,
+        payment_installment_id,
+        from_account:from_account_id(name, masked_identifier),
+        credit_card:credit_card_id(name, masked_identifier)
+      `
+    )
+    .eq("user_id", user.id)
+    .order("paid_at", { ascending: false })
+
+  if (filters?.status && filters.status !== "all") {
+    query = query.eq(
+      "status",
+      filters.status as Database["public"]["Enums"]["transaction_status_enum"]
+    )
+  }
+  if (filters?.fromAccountId && filters.fromAccountId !== "all") {
+    query = query.eq("from_account_id", filters.fromAccountId)
+  }
+  if (filters?.dateFrom) {
+    query = query.gte("paid_at", filters.dateFrom)
+  }
+  if (filters?.dateTo) {
+    const endOfDay = new Date(filters.dateTo)
+    endOfDay.setHours(23, 59, 59, 999)
+    query = query.lte("paid_at", endOfDay.toISOString())
+  }
+  const limit = filters?.limit ?? 100
+  query = query.limit(limit)
+
+  const { data: rows, error } = await query
+
+  if (error) {
+    return []
+  }
+
+  type Row = {
+    id: string
+    amount: number
+    currency: string
+    status: string
+    paid_at: string | null
+    created_at: string
+    note: string | null
+    payment_installment_id: string | null
+    from_account: { name?: string; masked_identifier?: string } | null
+    credit_card: { name?: string; masked_identifier?: string } | null
+  }
+
+  return (rows ?? []).map((r: unknown) => {
+    const row = r as Row
+    const statusDisplay =
+      (row.status ?? "pending").charAt(0).toUpperCase() +
+      (row.status ?? "pending").slice(1).toLowerCase()
+    const isInstallment = Boolean(row.payment_installment_id)
+    const cardName = row.credit_card?.name ?? "Credit card"
+    const merchantName = isInstallment
+      ? `${cardName} (Installment)`
+      : "Credit card payment"
+
+    return {
+      id: `card-${row.id}`,
+      amount: row.amount,
+      currency: row.currency,
+      status: statusDisplay,
+      merchantName,
+      fromAccountName: row.from_account?.name ?? null,
+      fromAccountMasked: row.from_account?.masked_identifier ?? null,
+      paidAt: row.paid_at,
+      createdAt: row.created_at,
+      feeAmount: 0,
+      note: row.note,
+      virtualAccount: null,
+      source: "card_payment",
     }
   })
 }
