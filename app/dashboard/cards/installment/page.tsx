@@ -1,10 +1,10 @@
- "use client"
+"use client"
 
 import Link from "next/link"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { TopHeader } from "@/components/top-header"
 import { Badge } from "@/components/ui/badge"
-import { CreditCard, Percent, MoreHorizontal, Banknote } from "lucide-react"
+import { CreditCard, Percent, MoreHorizontal, Banknote, Trash } from "lucide-react"
 import {
     Breadcrumb,
     BreadcrumbList,
@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select"
 import {
     getInstallmentPlans,
+    deleteInstallmentPlan,
     type InstallmentPlanListItem,
 } from "@/app/actions/credit-cards"
 import { AddInstallmentDialog } from "@/components/credit-card/installment/add-installment-dialog"
@@ -32,6 +33,17 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { toast } from "@/hooks/use-toast"
 
 const STATUS_FILTER_OPTIONS = [
     { value: "all", label: "All plans" },
@@ -48,6 +60,8 @@ export default function CardInstallmentPage() {
     const [loading, setLoading] = useState(false)
     const [addDialogOpen, setAddDialogOpen] = useState(false)
     const [payDialogPlan, setPayDialogPlan] = useState<InstallmentPlanListItem | null>(null)
+    const [deleteDialogPlan, setDeleteDialogPlan] = useState<InstallmentPlanListItem | null>(null)
+    const [deleteInProgress, setDeleteInProgress] = useState(false)
 
     const loadPlans = useCallback(async () => {
         setLoading(true)
@@ -94,6 +108,36 @@ export default function CardInstallmentPage() {
         if (plan.status === "completed") return
         setPayDialogPlan(plan)
     }
+
+    const handleOpenDeleteDialog = (plan: InstallmentPlanListItem) => {
+        if (plan.status === "completed") return
+        setDeleteDialogPlan(plan)
+    }
+
+    const handleConfirmDelete = async () => {
+        if (!deleteDialogPlan) return
+        setDeleteInProgress(true)
+        try {
+            const result = await deleteInstallmentPlan(deleteDialogPlan.id)
+            if (result.success) {
+                toast({
+                    title: "Installment plan deleted",
+                    description: "The plan has been removed. Reserved credit is now available again.",
+                })
+                setDeleteDialogPlan(null)
+                await loadPlans()
+            } else {
+                toast({
+                    title: "Could not delete plan",
+                    description: result.error,
+                    variant: "destructive",
+                })
+            }
+        } finally {
+            setDeleteInProgress(false)
+        }
+    }
+
     return (
         <div className="min-h-screen bg-background">
             <TopHeader title="Card Installments" />
@@ -284,134 +328,141 @@ export default function CardInstallmentPage() {
                                     {!loading &&
                                         filteredInstallments.length > 0 &&
                                         filteredInstallments.map((plan) => (
-                                        <tr
-                                            key={plan.id}
-                                            className="group border-b border-border last:border-b-0 hover:bg-muted/25"
-                                        >
-                                            {/* Installment + description */}
-                                            <td className="px-3 py-3.5 lg:px-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                                                        <CreditCard className="h-4 w-4" aria-hidden />
+                                            <tr
+                                                key={plan.id}
+                                                className="group border-b border-border last:border-b-0 hover:bg-muted/25"
+                                            >
+                                                {/* Installment + description */}
+                                                <td className="px-3 py-3.5 lg:px-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                                            <CreditCard className="h-4 w-4" aria-hidden />
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className="truncate text-sm font-medium text-card-foreground">
+                                                                {plan.merchantName}
+                                                            </p>
+                                                            <p className="text-xs text-muted-foreground">
+                                                                {plan.description}
+                                                            </p>
+                                                        </div>
                                                     </div>
-                                                    <div className="min-w-0">
-                                                        <p className="truncate text-sm font-medium text-card-foreground">
-                                                            {plan.merchantName}
-                                                        </p>
-                                                        <p className="text-xs text-muted-foreground">
-                                                            {plan.description}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </td>
+                                                </td>
 
-                                            {/* Monthly amount and remaining balance */}
-                                            <td className="px-3 py-3.5 lg:px-4">
-                                                <p className="text-sm font-semibold tabular-nums text-card-foreground">
-                                                    {new Intl.NumberFormat(undefined, {
-                                                        style: "currency",
-                                                        currency: plan.currency,
-                                                        minimumFractionDigits: 2,
-                                                        maximumFractionDigits: 2,
-                                                    }).format(plan.amountPerMonth)}
-                                                </p>
-                                                {plan.remainingMonths > 0 && (
-                                                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                                                {/* Monthly amount and remaining balance */}
+                                                <td className="px-3 py-3.5 lg:px-4">
+                                                    <p className="text-sm font-semibold tabular-nums text-card-foreground">
                                                         {new Intl.NumberFormat(undefined, {
                                                             style: "currency",
                                                             currency: plan.currency,
                                                             minimumFractionDigits: 2,
                                                             maximumFractionDigits: 2,
-                                                        }).format(plan.remainingBalance)}{" "}
-                                                        left
+                                                        }).format(plan.amountPerMonth)}
                                                     </p>
-                                                )}
-                                            </td>
+                                                    {plan.remainingMonths > 0 && (
+                                                        <p className="mt-0.5 text-[11px] text-muted-foreground">
+                                                            {new Intl.NumberFormat(undefined, {
+                                                                style: "currency",
+                                                                currency: plan.currency,
+                                                                minimumFractionDigits: 2,
+                                                                maximumFractionDigits: 2,
+                                                            }).format(plan.remainingBalance)}{" "}
+                                                            left
+                                                        </p>
+                                                    )}
+                                                </td>
 
-                                            {/* Total / term */}
-                                            <td className="px-3 py-3.5 text-xs text-muted-foreground lg:px-4">
-                                                <p>
-                                                    Total:{" "}
-                                                    <span className="font-medium text-card-foreground">
-                                                        {new Intl.NumberFormat(undefined, {
-                                                            style: "currency",
-                                                            currency: plan.currency,
-                                                            minimumFractionDigits: 2,
-                                                            maximumFractionDigits: 2,
-                                                        }).format(plan.totalAmount)}
-                                                    </span>
-                                                </p>
-                                                <p className="mt-0.5 text-[11px]">
-                                                    {plan.months}-month plan •{" "}
-                                                    {plan.remainingMonths > 0
-                                                        ? `${plan.remainingMonths} months left`
-                                                        : "Paid off"}
-                                                </p>
-                                            </td>
-
-                                            {/* Next due date */}
-                                            <td className="px-3 py-3.5 text-xs text-muted-foreground lg:px-4">
-                                                <p>{plan.nextDueDateLabel}</p>
-                                                {plan.remainingMonths > 0 && (
-                                                    <p className="mt-0.5 text-[11px]">
-                                                        Remaining:{" "}
+                                                {/* Total / term */}
+                                                <td className="px-3 py-3.5 text-xs text-muted-foreground lg:px-4">
+                                                    <p>
+                                                        Total:{" "}
                                                         <span className="font-medium text-card-foreground">
-                                                            {`${plan.remainingMonths} ${
-                                                                plan.remainingMonths === 1 ? "payment" : "payments"
-                                                            }`}
+                                                            {new Intl.NumberFormat(undefined, {
+                                                                style: "currency",
+                                                                currency: plan.currency,
+                                                                minimumFractionDigits: 2,
+                                                                maximumFractionDigits: 2,
+                                                            }).format(plan.totalAmount)}
                                                         </span>
                                                     </p>
-                                                )}
-                                            </td>
+                                                    <p className="mt-0.5 text-[11px]">
+                                                        {plan.months}-month plan •{" "}
+                                                        {plan.remainingMonths > 0
+                                                            ? `${plan.remainingMonths} months left`
+                                                            : "Paid off"}
+                                                    </p>
+                                                </td>
 
-                                            {/* Card */}
-                                            <td className="px-3 py-3.5 lg:px-4">
-                                                <p className="text-xs font-medium text-card-foreground">
-                                                    {plan.cardName}
-                                                </p>
-                                                <p className="text-[11px] text-muted-foreground">
-                                                    {plan.cardMaskedIdentifier}
-                                                </p>
-                                            </td>
+                                                {/* Next due date */}
+                                                <td className="px-3 py-3.5 text-xs text-muted-foreground lg:px-4">
+                                                    <p>{plan.nextDueDateLabel}</p>
+                                                    {plan.remainingMonths > 0 && (
+                                                        <p className="mt-0.5 text-[11px]">
+                                                            Remaining:{" "}
+                                                            <span className="font-medium text-card-foreground">
+                                                                {`${plan.remainingMonths} ${plan.remainingMonths === 1 ? "payment" : "payments"
+                                                                    }`}
+                                                            </span>
+                                                        </p>
+                                                    )}
+                                                </td>
 
-                                            {/* Status */}
-                                            <td className="px-3 py-3.5 lg:px-4">
-                                                <Badge
-                                                    className={
-                                                        plan.status === "ongoing"
-                                                            ? "rounded-full border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-medium text-primary"
-                                                            : "rounded-full border-success/30 bg-success/10 px-3 py-1 text-[11px] font-medium text-success"
-                                                    }
-                                                >
-                                                    {plan.status === "ongoing" ? "Ongoing" : "Completed"}
-                                                </Badge>
-                                            </td>
+                                                {/* Card */}
+                                                <td className="px-3 py-3.5 lg:px-4">
+                                                    <p className="text-xs font-medium text-card-foreground">
+                                                        {plan.cardName}
+                                                    </p>
+                                                    <p className="text-[11px] text-muted-foreground">
+                                                        {plan.cardMaskedIdentifier}
+                                                    </p>
+                                                </td>
 
-                                            {/* Row actions */}
-                                            <td className="px-3 py-3.5 text-right lg:px-4">
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <button
-                                                            type="button"
-                                                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-                                                            aria-label="More options"
-                                                        >
-                                                            <MoreHorizontal className="h-4 w-4" aria-hidden />
-                                                        </button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem
-                                                            onClick={() => handleOpenPayDialog(plan)}
-                                                            disabled={plan.status === "completed"}
-                                                        >
-                                                            <Banknote className="h-4 w-4" aria-hidden />
-                                                            Pay for this month
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                                {/* Status */}
+                                                <td className="px-3 py-3.5 lg:px-4">
+                                                    <Badge
+                                                        className={
+                                                            plan.status === "ongoing"
+                                                                ? "rounded-full border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-medium text-primary"
+                                                                : "rounded-full border-success/30 bg-success/10 px-3 py-1 text-[11px] font-medium text-success"
+                                                        }
+                                                    >
+                                                        {plan.status === "ongoing" ? "Ongoing" : "Completed"}
+                                                    </Badge>
+                                                </td>
+
+                                                {/* Row actions */}
+                                                <td className="px-3 py-3.5 text-right lg:px-4">
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <button
+                                                                type="button"
+                                                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                                                                aria-label="More options"
+                                                            >
+                                                                <MoreHorizontal className="h-4 w-4" aria-hidden />
+                                                            </button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end">
+                                                            <DropdownMenuItem
+                                                                onClick={() => handleOpenPayDialog(plan)}
+                                                                disabled={plan.status === "completed"}
+                                                            >
+                                                                <Banknote className="h-4 w-4" aria-hidden />
+                                                                Pay for this month
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem
+                                                                onClick={() => handleOpenDeleteDialog(plan)}
+                                                                disabled={plan.status === "completed"}
+                                                                className="text-red-600 hover:bg-red-50 focus:bg-red-100 focus:text-red-800 dark:hover:bg-red-900/20 dark:focus:bg-red-900/30 flex items-center font-medium"
+                                                            >
+                                                                <Trash className="h-4 w-4" aria-hidden />
+                                                                Delete This Installment
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                </td>
+                                            </tr>
+                                        ))}
                                 </tbody>
                             </table>
                         </div>
@@ -429,6 +480,35 @@ export default function CardInstallmentPage() {
                 plan={payDialogPlan}
                 onCompleted={loadPlans}
             />
+            <AlertDialog open={!!deleteDialogPlan} onOpenChange={(open) => !open && setDeleteDialogPlan(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete installment plan?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will remove the plan for {deleteDialogPlan?.merchantName} (
+                            {deleteDialogPlan?.totalAmount.toLocaleString(undefined, {
+                                style: "currency",
+                                currency: deleteDialogPlan?.currency ?? "PHP",
+                            })}{" "}
+                            total). Any installments already posted to your card balance will be reversed. This cannot be
+                            undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={deleteInProgress}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={(e) => {
+                                e.preventDefault()
+                                void handleConfirmDelete()
+                            }}
+                            disabled={deleteInProgress}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                            {deleteInProgress ? "Deleting…" : "Delete"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }

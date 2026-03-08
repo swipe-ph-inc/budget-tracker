@@ -1,8 +1,18 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { Check, Zap, Crown, Building2, ArrowRight, CreditCard, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { TopHeader } from "@/components/top-header"
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
 
 const plans = [
   {
@@ -84,12 +94,29 @@ export default function SubscriptionPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null)
 
   return (
-    <div className="flex flex-col gap-6 pb-8">
-      {/* Header */}
-      <div>
-        <h1 className="text-xl font-bold text-foreground sm:text-2xl">Subscription</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Manage your plan and billing preferences</p>
-      </div>
+    <>
+      <TopHeader title="Subscription" />
+      <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <div className="mx-auto flex max-w-screen-2xl flex-col gap-6 pb-8">
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link href="/dashboard">Dashboard</Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Subscription</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+
+          {/* Header */}
+          <div>
+            <h1 className="text-xl font-bold text-foreground sm:text-2xl">Subscription</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Manage your plan and billing preferences</p>
+          </div>
 
       {/* Current plan banner */}
       <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -331,6 +358,8 @@ export default function SubscriptionPage() {
           ))}
         </div>
       </div>
-    </div>
+        </div>
+      </main>
+    </>
   )
 }

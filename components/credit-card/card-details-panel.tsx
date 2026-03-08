@@ -1,11 +1,12 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { formatCurrency, type CreditCardData } from "@/components/credit-card/credit-card-visual"
 import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
-import { CreditCard, TrendingUp, Percent, Shield, FileDown, FileUp, MoreHorizontal, Pencil, Ban, Lock } from "lucide-react"
+import { CreditCard, TrendingUp, Percent, Shield, FileDown, FileUp, MoreHorizontal, Pencil, Ban, Lock, Eye } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -98,7 +99,8 @@ export function CardDetailsPanel({ card, onCardUpdated }: CardDetailsPanelProps)
     )
   }
 
-  const availableCredit = card.credit_limit - card.balance_owed
+  const reserved = card.installment_reserved ?? 0
+  const availableCredit = Math.max(0, card.credit_limit - card.balance_owed - reserved)
 
   return (
     <div className="flex min-h-full flex-col overflow-y-auto rounded-2xl border border-border bg-card p-5 lg:p-6">
@@ -133,12 +135,18 @@ export function CardDetailsPanel({ card, onCardUpdated }: CardDetailsPanelProps)
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link href={`/dashboard/cards/history?cardId=${card.id}`} className="flex items-center gap-2">
+                  <Eye className="h-4 w-4" />
+                  View History
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem disabled>
-                <FileDown className="mr-2 h-4 w-4" />
+                <FileDown className="h-4 w-4" />
                 Import
               </DropdownMenuItem>
               <DropdownMenuItem disabled>
-                <FileUp className="mr-2 h-4 w-4" />
+                <FileUp className="h-4 w-4" />
                 Export
               </DropdownMenuItem>
             </DropdownMenuContent>

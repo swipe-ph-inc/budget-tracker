@@ -8,7 +8,7 @@ import {
 } from "@/components/credit-card/credit-card-visual"
 import { CardDetailsPanel } from "@/components/credit-card/card-details-panel"
 import { QuickActions } from "@/components/credit-card/quick-actions"
-import { getCreditCards } from "@/app/actions/credit-cards"
+import { getCreditCards, getInstallmentReservedByCard } from "@/app/actions/credit-cards"
 import type { Tables } from "@/lib/supabase/database.types"
 import { toast } from "@/hooks/use-toast"
 import { TopHeader } from "@/components/top-header"
@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button"
 
 type CreditCardRow = Tables<"credit_card">
 
-function mapRowToCard(row: CreditCardRow): CreditCardData {
+function mapRowToCard(row: CreditCardRow, installmentReserved?: number): CreditCardData {
   return {
     id: row.id,
     name: row.name ?? "Credit Card",
@@ -32,6 +32,7 @@ function mapRowToCard(row: CreditCardRow): CreditCardData {
     payment_due_day: row.payment_due_day,
     is_blocked: row.is_blocked ?? null,
     is_temporary_blocked: row.temporary_blocked ?? null,
+    installment_reserved: installmentReserved ?? 0,
   }
 }
 
@@ -55,15 +56,20 @@ export default function CardsPage() {
     [cards]
   )
   const totalAvailable = useMemo(
-    () => cards.reduce((sum, c) => sum + (c.credit_limit - c.balance_owed), 0),
+    () =>
+      cards.reduce(
+        (sum, c) =>
+          sum + Math.max(0, c.credit_limit - c.balance_owed - (c.installment_reserved ?? 0)),
+        0
+      ),
     [cards]
   )
 
   const loadCards = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await getCreditCards()
-      const mapped = (data ?? []).map(mapRowToCard)
+      const [data, reserved] = await Promise.all([getCreditCards(), getInstallmentReservedByCard()])
+      const mapped = (data ?? []).map((row) => mapRowToCard(row, reserved[row.id]))
       setCards(mapped)
       setSelectedCardId((current) => {
         if (current) return current

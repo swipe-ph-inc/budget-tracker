@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { createInstallmentPlan, getCreditCards } from "@/app/actions/credit-cards"
+import { createInstallmentPlan, getCreditCards, getInstallmentReservedByCard } from "@/app/actions/credit-cards"
 import { getMerchantsWithCategories, type MerchantWithCategory } from "@/app/actions/merchants"
 import { AddMerchantDialog } from "@/components/merchant/add-merchant-dialog"
 import { ErrorMessage } from "@/components/ui/status-message"
@@ -34,8 +34,9 @@ const CURRENCIES = [
 
 const INSTALLMENT_MONTHS = [3, 6, 12, 24] as const
 
-function formatAvailableCredit(limit: number, owed: number, currency: string): string {
-  const available = Math.max(0, (limit ?? 0) - (owed ?? 0))
+/** Available = limit - owed - reserved (reserved = pending installment totals on this card). */
+function formatAvailableCredit(limit: number, owed: number, reserved: number, currency: string): string {
+  const available = Math.max(0, limit - owed - reserved)
   return new Intl.NumberFormat(undefined, {
     style: "currency",
     currency: currency || "PHP",
@@ -84,6 +85,7 @@ export function AddInstallmentDialog({
   const [addMerchantOpen, setAddMerchantOpen] = useState(false)
   const [status, setStatus] = useState<{ type: "error"; message: string } | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [reservedByCard, setReservedByCard] = useState<Record<string, number>>({})
 
   const fetchMerchants = useCallback(async () => {
     setMerchantsLoading(true)
@@ -105,8 +107,9 @@ export function AddInstallmentDialog({
   const fetchCreditCards = useCallback(async () => {
     setCardsLoading(true)
     try {
-      const data = await getCreditCards()
+      const [data, reserved] = await Promise.all([getCreditCards(), getInstallmentReservedByCard()])
       setCreditCards(data ?? [])
+      setReservedByCard(reserved ?? {})
       if (data?.length && !initialCreditCardId) {
         setCreditCardId((prev) => prev || data[0].id)
       }
@@ -238,6 +241,7 @@ export function AddInstallmentDialog({
                           {formatAvailableCredit(
                             c.credit_limit ?? 0,
                             c.balance_owed ?? 0,
+                            reservedByCard[c.id] ?? 0,
                             c.currency ?? "PHP"
                           )}{" "}
                           available

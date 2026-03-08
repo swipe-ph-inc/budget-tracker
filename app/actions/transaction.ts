@@ -973,6 +973,7 @@ export async function getPayments(
 
 export type CardPaymentFilters = {
   status?: string
+  creditCardId?: string
   fromAccountId?: string
   dateFrom?: string
   dateTo?: string
@@ -1018,6 +1019,9 @@ export async function getCardPayments(
       "status",
       filters.status as Database["public"]["Enums"]["transaction_status_enum"]
     )
+  }
+  if (filters?.creditCardId && filters.creditCardId !== "all") {
+    query = query.eq("credit_card_id", filters.creditCardId)
   }
   if (filters?.fromAccountId && filters.fromAccountId !== "all") {
     query = query.eq("from_account_id", filters.fromAccountId)
@@ -1077,6 +1081,90 @@ export async function getCardPayments(
       note: row.note,
       virtualAccount: null,
       source: "card_payment",
+    }
+  })
+}
+
+export type IncomeListItem = {
+  id: string
+  amount: number
+  currency: string
+  receivedAt: string | null
+  createdAt: string
+  note: string | null
+  source: string
+  accountName: string
+  accountMasked: string
+}
+
+export async function getIncome(filters?: {
+  accountId?: string
+  dateFrom?: string
+  dateTo?: string
+  limit?: number
+}): Promise<IncomeListItem[]> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return []
+  }
+
+  let query = supabase
+    .from("income")
+    .select(
+      `
+        id,
+        amount,
+        currency,
+        received_at,
+        created_at,
+        note,
+        source,
+        account:account_id(name, masked_identifier)
+      `
+    )
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+
+  if (filters?.accountId && filters.accountId !== "all") {
+    query = query.eq("account_id", filters.accountId)
+  }
+  if (filters?.dateFrom) {
+    query = query.gte("created_at", filters.dateFrom)
+  }
+  if (filters?.dateTo) {
+    const endOfDay = new Date(filters.dateTo)
+    endOfDay.setHours(23, 59, 59, 999)
+    query = query.lte("created_at", endOfDay.toISOString())
+  }
+  const limit = filters?.limit ?? 100
+  query = query.limit(limit)
+
+  const { data: rows, error } = await query
+
+  if (error) {
+    return []
+  }
+
+  return (rows ?? []).map((r) => {
+    const account = r.account as { name?: string; masked_identifier?: string } | null
+    const sourceDisplay =
+      (r.source ?? "other").charAt(0).toUpperCase() + (r.source ?? "other").slice(1).toLowerCase()
+    return {
+      id: r.id,
+      amount: r.amount,
+      currency: r.currency,
+      receivedAt: r.received_at,
+      createdAt: r.created_at,
+      note: r.note,
+      source: sourceDisplay,
+      accountName: account?.name ?? "—",
+      accountMasked: account?.masked_identifier ?? "—",
     }
   })
 }

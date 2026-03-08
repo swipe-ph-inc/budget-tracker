@@ -26,7 +26,15 @@ import { useState, useEffect } from "react"
 
 const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed"
 
-const sidebarItems = [
+type SidebarItem = {
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  href: string
+  children?: { label: string; href: string }[]
+  badge?: boolean
+}
+
+const sidebarItems: SidebarItem[] = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
   { label: "Account", icon: User, href: "/dashboard/account" },
   { label: "Credit Cards", icon: CreditCard, href: "/dashboard/cards" },
@@ -41,11 +49,11 @@ const sidebarItems = [
   },
   { label: "Transactions", icon: Receipt, href: "/dashboard/transactions" },
   { label: "Invoices", icon: FileText, href: "/dashboard/invoice" },
-  { label: "Saving Plans", icon: PiggyBank, href: "/dashboard/saving-plans" },
-  { label: "Investments", icon: TrendingUp, href: "/dashboard/investment" },
-  { label: "Inbox", icon: Mail, href: "/dashboard/inbox", badge: true },
-  { label: "Promos", icon: Gift, href: "/dashboard/promos" },
-  { label: "Insights", icon: BarChart3, href: "/dashboard/insights" },
+  // { label: "Saving Plans", icon: PiggyBank, href: "/dashboard/saving-plans" },
+  // { label: "Investments", icon: TrendingUp, href: "/dashboard/investment" },
+  // { label: "Inbox", icon: Mail, href: "/dashboard/inbox", badge: true },
+  // { label: "Promos", icon: Gift, href: "/dashboard/promos" },
+  // { label: "Insights", icon: BarChart3, href: "/dashboard/insights" },
 ]
 
 export function AppSidebar() {
@@ -168,7 +176,7 @@ export function AppSidebar() {
                     </button>
                     {isOpen && (
                       <ul className="ml-8 mt-1 flex flex-col gap-1">
-                        {item.children.map((child) => (
+                        {(item.children ?? []).map((child) => (
                           <li key={child.label}>
                             <Link
                               href={child.href}

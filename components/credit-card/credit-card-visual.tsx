@@ -34,6 +34,8 @@ export interface CreditCardData {
     payment_due_day?: number | null
     is_blocked?: boolean | null
     is_temporary_blocked?: boolean | null
+    /** Total amount reserved by pending installment plans on this card. Available = limit - balance_owed - this. */
+    installment_reserved?: number
 }
 
 function formatCurrency(amount: number, currency: string): string {
@@ -56,7 +58,8 @@ export function CreditCardVisual({ card, selected, compact, onClick }: CreditCar
     const bgUrl = card.background_img_url
     const hasBg = Boolean(bgUrl)
     const cardLogoUrl = card.card_type ? CARD_TYPE_LOGOS[card.card_type] : null
-    const availableCredit = card.credit_limit - card.balance_owed
+    const reserved = card.installment_reserved ?? 0
+    const availableCredit = Math.max(0, card.credit_limit - card.balance_owed - reserved)
 
     const needsLightText =
         !hasBg || DARK_BACKGROUND_IDS.some((id) => bgUrl?.includes(id))

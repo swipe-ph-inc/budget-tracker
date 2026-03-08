@@ -105,7 +105,7 @@ export async function getCreditCards(): Promise<CreditCardRow[]> {
     return []
   }
 
-  const { data, error } = await supabase
+  const { data: rows, error } = await supabase
     .from("credit_card")
     .select("*")
     .eq("user_id", user.id)
@@ -115,7 +115,19 @@ export async function getCreditCards(): Promise<CreditCardRow[]> {
     throw new Error(error.message)
   }
 
-  return data ?? []
+  const cards = rows ?? []
+  for (const card of cards) {
+    await postDueInstallmentsForCard(card.id)
+  }
+
+  const { data: updated, error: refetchError } = await supabase
+    .from("credit_card")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+
+  if (refetchError) return cards
+  return updated ?? cards
 }
 
 export type InstallmentPlanListItem = {
@@ -688,6 +700,99 @@ export type CreateInstallmentPlanResult =
   | { success: true }
   | { success: false; error: string }
 
+/**
+ * Returns the total amount of credit "reserved" by pending installment plans per card.
+ * Used to compute available credit = credit_limit - balance_owed - reserved.
+ */
+export async function getInstallmentReservedByCard(): Promise<Record<string, number>> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+  if (authError || !user) return {}
+
+  const { data, error } = await supabase
+    .from("payment")
+    .select("from_credit_card_id, amount")
+    .eq("user_id", user.id)
+    .eq("payment_type", "installment")
+    .eq("status", "pending")
+    .not("from_credit_card_id", "is", null)
+
+  if (error || !data) return {}
+
+  const reserved: Record<string, number> = {}
+  for (const row of data) {
+    const id = row.from_credit_card_id!
+    reserved[id] = (reserved[id] ?? 0) + Number(row.amount)
+  }
+  return reserved
+}
+
+const nowIso = () => new Date().toISOString()
+
+/**
+ * Posts due installments to the card's balance_owed. For each installment where
+ * due_date <= today and posted_at is null and status != 'completed', sets posted_at
+ * and adds the amount to the card's balance_owed. Idempotent (only unposted rows are updated).
+ */
+export async function postDueInstallmentsForCard(creditCardId: string): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+  if (authError || !user) return { ok: false, error: "Not authenticated." }
+
+  const { data: card, error: cardError } = await supabase
+    .from("credit_card")
+    .select("id, balance_owed, user_id")
+    .eq("id", creditCardId)
+    .single()
+
+  if (cardError || !card || card.user_id !== user.id) return { ok: false, error: "Credit card not found." }
+
+  const today = new Date().toISOString().slice(0, 10)
+
+  const { data: dueRows } = await supabase
+    .from("payment_installment")
+    .select("id, amount")
+    .eq("credit_card_id", creditCardId)
+    .lte("due_date", today)
+    .is("posted_at", null)
+    .neq("status", "completed")
+
+  if (!dueRows?.length) return { ok: true }
+
+  let totalToAdd = 0
+  for (const row of dueRows) {
+    const { data: updated } = await supabase
+      .from("payment_installment")
+      .update({ posted_at: nowIso() })
+      .eq("id", row.id)
+      .is("posted_at", null)
+      .select("id")
+      .maybeSingle()
+
+    if (updated) totalToAdd += Number(row.amount)
+  }
+
+  if (totalToAdd > 0) {
+    const newBalance = (card.balance_owed ?? 0) + totalToAdd
+    const { error: updateErr } = await supabase
+      .from("credit_card")
+      .update({ balance_owed: newBalance })
+      .eq("id", creditCardId)
+
+    if (updateErr) return { ok: false, error: updateErr.message }
+  }
+
+  return { ok: true }
+}
+
 export async function createInstallmentPlan(params: {
   creditCardId: string
   merchantId: string
@@ -704,6 +809,32 @@ export async function createInstallmentPlan(params: {
   } = await supabase.auth.getUser()
   if (authError || !user) {
     return { success: false, error: "You must be signed in." }
+  }
+
+  const reservedByCard = await getInstallmentReservedByCard()
+  const reserved = reservedByCard[params.creditCardId] ?? 0
+
+  const { data: card, error: cardError } = await supabase
+    .from("credit_card")
+    .select("id, credit_limit, balance_owed, user_id")
+    .eq("id", params.creditCardId)
+    .single()
+
+  if (cardError || !card) {
+    return { success: false, error: "Credit card not found." }
+  }
+  if (card.user_id !== user.id) {
+    return { success: false, error: "You do not have access to this credit card." }
+  }
+
+  const limit = card.credit_limit ?? 0
+  const owed = card.balance_owed ?? 0
+  const available = limit - owed - reserved
+  if (available < params.totalAmount) {
+    return {
+      success: false,
+      error: "Insufficient available credit. Installments reserve the full amount; reduce the total or choose another card.",
+    }
   }
 
   const perMonth = params.totalAmount / params.numMonths
@@ -804,6 +935,8 @@ export async function payNextInstallment(params: {
   if (!creditCardId) {
     return { success: false, error: "Installment is not linked to a credit card." }
   }
+
+  await postDueInstallmentsForCard(creditCardId)
 
   const amount = nextInstallment.amount
   const totalCharge = amount + feeAmount
@@ -917,6 +1050,98 @@ export async function payNextInstallment(params: {
       fee_type: "other" as const,
       payment_id: params.paymentId,
     } as Database["public"]["Tables"]["transaction_fee"]["Insert"])
+  }
+
+  return { success: true }
+}
+
+export type DeleteInstallmentPlanResult =
+  | { success: true }
+  | { success: false; error: string }
+
+/** Deletes an installment plan (payment + installments). Reverses any posted installments from the card's balance_owed. */
+export async function deleteInstallmentPlan(paymentId: string): Promise<DeleteInstallmentPlanResult> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+  if (authError || !user) {
+    return { success: false, error: "You must be signed in." }
+  }
+
+  const { data: payment, error: paymentError } = await supabase
+    .from("payment")
+    .select("id, user_id, payment_type")
+    .eq("id", paymentId)
+    .single()
+
+  if (paymentError || !payment) {
+    return { success: false, error: "Installment plan not found." }
+  }
+  if (payment.user_id !== user.id) {
+    return { success: false, error: "You do not have access to this plan." }
+  }
+  if (payment.payment_type !== "installment") {
+    return { success: false, error: "Not an installment plan." }
+  }
+
+  const { data: installments, error: installmentsError } = await supabase
+    .from("payment_installment")
+    .select("id, amount, credit_card_id, posted_at")
+    .eq("payment_id", paymentId)
+
+  if (installmentsError) {
+    return { success: false, error: installmentsError.message }
+  }
+
+  const postedSumByCard: Record<string, number> = {}
+  for (const row of installments ?? []) {
+    if (row.posted_at && row.credit_card_id) {
+      postedSumByCard[row.credit_card_id] = (postedSumByCard[row.credit_card_id] ?? 0) + Number(row.amount)
+    }
+  }
+
+  const installmentIds = (installments ?? []).map((r) => r.id)
+
+  if (installmentIds.length > 0) {
+    const { error: unlinkError } = await supabase
+      .from("card_payment")
+      .update({ payment_installment_id: null })
+      .in("payment_installment_id", installmentIds)
+
+    if (unlinkError) {
+      return { success: false, error: unlinkError.message }
+    }
+  }
+
+  const { error: deleteInstallmentsError } = await supabase
+    .from("payment_installment")
+    .delete()
+    .eq("payment_id", paymentId)
+
+  if (deleteInstallmentsError) {
+    return { success: false, error: deleteInstallmentsError.message }
+  }
+
+  for (const [cardId, sum] of Object.entries(postedSumByCard)) {
+    const { data: card } = await supabase
+      .from("credit_card")
+      .select("balance_owed")
+      .eq("id", cardId)
+      .single()
+
+    if (card && card.balance_owed != null) {
+      const newBalance = Math.max(0, card.balance_owed - sum)
+      await supabase.from("credit_card").update({ balance_owed: newBalance }).eq("id", cardId)
+    }
+  }
+
+  const { error: deletePaymentError } = await supabase.from("payment").delete().eq("id", paymentId)
+
+  if (deletePaymentError) {
+    return { success: false, error: deletePaymentError.message }
   }
 
   return { success: true }

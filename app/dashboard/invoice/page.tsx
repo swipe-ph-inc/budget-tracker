@@ -1,23 +1,10 @@
 "use client"
 
 import { TopHeader } from "@/components/top-header"
-import { Search, SlidersHorizontal, Plus, MoreHorizontal, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Home, Dumbbell, Tv, Zap, CreditCard, Shield, BookOpen, Smartphone, Globe, Heart, Plane, TrendingUp, TrendingDown } from "lucide-react"
+import { Search, SlidersHorizontal, Plus, MoreHorizontal, ChevronDown, ChevronLeft, ChevronRight, CreditCard, Shield, Heart, TrendingUp, TrendingDown, Receipt } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { useState } from "react"
-
-const invoices = [
-  { name: "Monthly Rent Payment", icon: Home, id: "INV-281005-001", amount: "$1,200", date: "October 01, 2028", time: "08:30 AM", status: "Pending" },
-  { name: "Gym Membership Renewal", icon: Dumbbell, id: "INV-281005-002", amount: "$600", date: "October 05, 2028", time: "09:45 AM", status: "Overdue" },
-  { name: "Cable and Internet Service", icon: Tv, id: "INV-281005-003", amount: "$150", date: "October 10, 2028", time: "07:25 AM", status: "Paid" },
-  { name: "Electric Bill", icon: Zap, id: "INV-281005-004", amount: "$90", date: "October 15, 2028", time: "01:15 PM", status: "Pending" },
-  { name: "Credit Card Bill", icon: CreditCard, id: "INV-281005-005", amount: "$450", date: "October 20, 2028", time: "09:00 AM", status: "Paid" },
-  { name: "Car Insurance Premium", icon: Shield, id: "INV-281005-006", amount: "$220", date: "October 25, 2028", time: "10:30 AM", status: "Unpaid" },
-  { name: "Online Learning Subscription", icon: BookOpen, id: "INV-281005-007", amount: "$300", date: "November 01, 2028", time: "12:10 PM", status: "Overdue" },
-  { name: "Mobile Phone Service", icon: Smartphone, id: "INV-281005-008", amount: "$85", date: "November 05, 2028", time: "02:40 PM", status: "Unpaid" },
-  { name: "Annual Software Subscription", icon: Globe, id: "INV-281005-009", amount: "$120", date: "November 10, 2028", time: "08:30 AM", status: "Paid" },
-  { name: "Health Insurance Premium", icon: Heart, id: "INV-281005-010", amount: "$320", date: "November 15, 2028", time: "11:30 AM", status: "Unpaid" },
-  { name: "Holiday Travel Booking", icon: Plane, id: "INV-281005-011", amount: "$2,500", date: "November 20, 2028", time: "05:30 PM", status: "Pending" },
-]
+import { useState, useEffect } from "react"
+import { getInvoices, type InvoiceListItem } from "@/app/actions/invoice"
 
 const statusStyles: Record<string, string> = {
   Pending: "bg-warning/10 text-warning hover:bg-warning/10",
@@ -28,11 +15,78 @@ const statusStyles: Record<string, string> = {
 
 const tabs = ["All", "Paid", "Unpaid", "Overdue"]
 
+function formatAmount(amount: number, currency: string): string {
+  if (currency === "PHP") return `₱${Number(amount).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`
+  if (currency === "USD") return `$${Number(amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}`
+  return `${currency} ${Number(amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+}
+
+function formatDate(isoDate: string): string {
+  return new Date(isoDate).toLocaleDateString("en-US", { month: "long", day: "2-digit", year: "numeric" })
+}
+
+function formatTime(isoDate: string): string {
+  return new Date(isoDate).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true })
+}
+
+function displayStatus(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+function invoiceToRow(inv: InvoiceListItem): {
+  invoiceId: string
+  name: string
+  icon: typeof Receipt
+  id: string
+  amount: string
+  date: string
+  time: string
+  status: string
+} {
+  const name =
+    inv.merchant_name ||
+    (inv.reference_type === "subscription"
+      ? "Subscription"
+      : inv.reference_type === "installment"
+        ? "Installment"
+        : "Recurring payment")
+  return {
+    invoiceId: inv.id,
+    name,
+    icon: Receipt,
+    id: inv.invoice_number || `INV-${inv.id.slice(0, 8)}`,
+    amount: formatAmount(inv.amount, inv.currency),
+    date: formatDate(inv.due_date || inv.invoice_date),
+    time: formatTime(inv.created_at),
+    status: displayStatus(inv.status),
+  }
+}
+
 export default function InvoicePage() {
   const [activeTab, setActiveTab] = useState("All")
   const [currentPage, setCurrentPage] = useState(1)
+  const [invoices, setInvoices] = useState<InvoiceListItem[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const filteredInvoices = activeTab === "All" ? invoices : invoices.filter((inv) => inv.status === activeTab)
+  useEffect(() => {
+    let cancelled = false
+    getInvoices().then((list) => {
+      if (!cancelled) {
+        setInvoices(list)
+        setLoading(false)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const rows = invoices.map(invoiceToRow)
+  const filteredInvoices = activeTab === "All" ? rows : rows.filter((inv) => inv.status === activeTab)
+
+  const totalAmount = invoices.reduce((sum, inv) => sum + inv.amount, 0)
+  const paidAmount = invoices.filter((inv) => inv.status === "paid").reduce((sum, inv) => sum + inv.amount, 0)
+  const unpaidAmount = totalAmount - paidAmount
 
   return (
     <>
@@ -47,14 +101,15 @@ export default function InvoicePage() {
             </div>
             <div className="flex-1">
               <p className="text-sm text-muted-foreground">Total Invoices</p>
-              <p className="text-xl font-bold text-card-foreground lg:text-2xl">$138,500</p>
+              <p className="text-xl font-bold text-card-foreground lg:text-2xl">
+                {loading ? "—" : formatAmount(totalAmount, invoices[0]?.currency ?? "PHP")}
+              </p>
             </div>
             <div className="text-right">
               <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                <TrendingUp className="h-3 w-3" /> 8.20 %
+                <TrendingUp className="h-3 w-3" /> {invoices.length}
               </span>
-              <p className="mt-1 text-xs text-muted-foreground">vs last month</p>
-              <p className="text-xs text-muted-foreground">$128,000</p>
+              <p className="mt-1 text-xs text-muted-foreground">invoices</p>
             </div>
           </div>
           {/* Paid Invoices */}
@@ -64,14 +119,15 @@ export default function InvoicePage() {
             </div>
             <div className="flex-1">
               <p className="text-sm text-muted-foreground">Paid Invoices</p>
-              <p className="text-xl font-bold text-card-foreground lg:text-2xl">$97,400</p>
+              <p className="text-xl font-bold text-card-foreground lg:text-2xl">
+                {loading ? "—" : formatAmount(paidAmount, invoices[0]?.currency ?? "PHP")}
+              </p>
             </div>
             <div className="text-right">
               <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                <TrendingUp className="h-3 w-3" /> 2.74 %
+                <TrendingUp className="h-3 w-3" /> {invoices.filter((i) => i.status === "paid").length}
               </span>
-              <p className="mt-1 text-xs text-muted-foreground">vs last month</p>
-              <p className="text-xs text-muted-foreground">$94,800</p>
+              <p className="mt-1 text-xs text-muted-foreground">paid</p>
             </div>
           </div>
           {/* Unpaid Invoices */}
@@ -81,14 +137,15 @@ export default function InvoicePage() {
             </div>
             <div className="flex-1">
               <p className="text-sm text-muted-foreground">Unpaid Invoices</p>
-              <p className="text-xl font-bold text-card-foreground lg:text-2xl">$41,100</p>
+              <p className="text-xl font-bold text-card-foreground lg:text-2xl">
+                {loading ? "—" : formatAmount(unpaidAmount, invoices[0]?.currency ?? "PHP")}
+              </p>
             </div>
             <div className="text-right">
               <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
-                <TrendingDown className="h-3 w-3" /> 13.92 %
+                <TrendingDown className="h-3 w-3" /> {invoices.filter((i) => i.status !== "paid").length}
               </span>
-              <p className="mt-1 text-xs text-muted-foreground">vs last month</p>
-              <p className="text-xs text-muted-foreground">$47,750</p>
+              <p className="mt-1 text-xs text-muted-foreground">pending / overdue</p>
             </div>
           </div>
         </div>
@@ -164,10 +221,23 @@ export default function InvoicePage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredInvoices.map((inv, i) => {
-                  const Icon = inv.icon
-                  return (
-                    <tr key={i} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                {loading ? (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                      Loading invoices…
+                    </td>
+                  </tr>
+                ) : filteredInvoices.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                      No invoices match the current filter.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredInvoices.map((inv, i) => {
+                    const Icon = inv.icon
+                    return (
+                      <tr key={inv.invoiceId} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
                       <td className="px-4 py-3.5">
                         <input type="checkbox" className="h-4 w-4 rounded border-input accent-primary" />
                       </td>
@@ -196,7 +266,8 @@ export default function InvoicePage() {
                       </td>
                     </tr>
                   )
-                })}
+                })
+                )}
               </tbody>
             </table>
           </div>
@@ -204,13 +275,7 @@ export default function InvoicePage() {
           {/* Pagination */}
           <div className="flex flex-col items-center justify-between gap-3 border-t border-border px-4 py-3 sm:flex-row lg:px-6">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>Showing</span>
-              <select className="rounded-md border border-input bg-background px-2 py-1 text-sm text-foreground focus:outline-none">
-                <option>11</option>
-                <option>24</option>
-                <option>48</option>
-              </select>
-              <span>out of 512</span>
+              <span>Showing {filteredInvoices.length} out of {invoices.length} invoices</span>
             </div>
             <div className="flex items-center gap-1">
               <button className="flex h-8 w-8 items-center justify-center rounded-lg border border-input text-muted-foreground hover:bg-muted disabled:opacity-50" disabled>
