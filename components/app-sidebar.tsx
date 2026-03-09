@@ -49,7 +49,7 @@ const sidebarItems: SidebarItem[] = [
   },
   { label: "Transactions", icon: Receipt, href: "/dashboard/transactions" },
   { label: "Invoices", icon: FileText, href: "/dashboard/invoice" },
-  // { label: "Saving Plans", icon: PiggyBank, href: "/dashboard/saving-plans" },
+  { label: "Saving Plans", icon: PiggyBank, href: "/dashboard/saving-plans" },
   // { label: "Investments", icon: TrendingUp, href: "/dashboard/investment" },
   // { label: "Inbox", icon: Mail, href: "/dashboard/inbox", badge: true },
   // { label: "Promos", icon: Gift, href: "/dashboard/promos" },

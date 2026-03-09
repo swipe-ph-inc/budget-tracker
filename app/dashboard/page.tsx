@@ -20,7 +20,6 @@ export default function DashboardPage() {
             {/* Left Column */}
             <div className="flex w-full lg:w-[280px] shrink-0 flex-col gap-5">
               <BalanceCard />
-              <QuickActions />
               <DailyLimit />
               <SavingPlans />
             </div>

@@ -1,48 +1,90 @@
 "use client"
 
+import { useCallback, useEffect, useState } from "react"
+import Link from "next/link"
 import { Wifi } from "lucide-react"
+import { getAccounts } from "@/app/actions/accounts"
+import { getProfile } from "@/app/actions/profile"
+
+function formatBalance(amount: number, currency: string): string {
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: currency || "PHP",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount)
+}
 
 export function BalanceCard() {
+  const [totalBalance, setTotalBalance] = useState(0)
+  const [currency, setCurrency] = useState("PHP")
+  const [accountCount, setAccountCount] = useState(0)
+  const [displayName, setDisplayName] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  const loadData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [accounts, profile] = await Promise.all([getAccounts(), getProfile()])
+      const total = (accounts ?? []).reduce((sum, a) => sum + (a.balance ?? 0), 0)
+      const primaryCurrency = accounts?.[0]?.currency ?? profile?.profile?.currency ?? "PHP"
+      setTotalBalance(total)
+      setCurrency(primaryCurrency)
+      setAccountCount(accounts?.length ?? 0)
+      if (profile?.profile?.first_name || profile?.profile?.last_name) {
+        setDisplayName(
+          [profile.profile.first_name, profile.profile.last_name].filter(Boolean).join(" ") ?? null
+        )
+      } else {
+        setDisplayName(null)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadData()
+  }, [loadData])
+
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[hsl(145,50%,25%)] to-[hsl(145,60%,18%)] p-6 text-[hsl(0,0%,100%)]">
-      {/* Card Pattern */}
-      <div className="absolute inset-0 opacity-10">
-        <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full border border-[hsl(0,0%,100%)]" />
-        <div className="absolute -right-4 -top-4 h-32 w-32 rounded-full border border-[hsl(0,0%,100%)]" />
-      </div>
-
-      <div className="relative">
-        <div className="flex items-start justify-between">
-          <svg viewBox="0 0 32 32" className="h-8 w-8" fill="currentColor">
-            <circle cx="10" cy="10" r="4" />
-            <circle cx="22" cy="10" r="4" />
-            <circle cx="10" cy="22" r="4" />
-            <circle cx="22" cy="22" r="4" />
-          </svg>
-          <Wifi className="h-5 w-5 rotate-90 opacity-80" />
+    <Link href="/dashboard/account" className="block">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[hsl(145,50%,25%)] to-[hsl(145,60%,18%)] p-6 text-[hsl(0,0%,100%)] transition-opacity hover:opacity-95">
+        {/* Card Pattern */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full border border-[hsl(0,0%,100%)]" />
+          <div className="absolute -right-4 -top-4 h-32 w-32 rounded-full border border-[hsl(0,0%,100%)]" />
         </div>
 
-        <div className="mt-6">
-          <p className="text-lg font-semibold">Andrew Forbist</p>
-        </div>
-
-        <div className="mt-4 flex items-end justify-between">
-          <div>
-            <p className="text-xs opacity-70">Balance Amount</p>
-            <p className="text-2xl font-bold">$562,000</p>
+        <div className="relative">
+          <div className="flex items-start justify-between">
+            <svg viewBox="0 0 32 32" className="h-8 w-8" fill="currentColor">
+              <circle cx="10" cy="10" r="4" />
+              <circle cx="22" cy="10" r="4" />
+              <circle cx="10" cy="22" r="4" />
+              <circle cx="22" cy="22" r="4" />
+            </svg>
+            <Wifi className="h-5 w-5 rotate-90 opacity-80" />
           </div>
-          <div className="flex gap-4 text-xs">
+
+          <div className="mt-6">
+            <p className="text-lg font-semibold">{loading ? "…" : displayName ?? "Account"}</p>
+          </div>
+
+          <div className="mt-4 flex items-end justify-between">
             <div>
-              <span className="opacity-70">EXP</span>
-              <p className="font-medium">11/29</p>
+              <p className="text-xs opacity-70">Total balance</p>
+              <p className="text-2xl font-bold">
+                {loading ? "—" : formatBalance(totalBalance, currency)}
+              </p>
             </div>
-            <div>
-              <span className="opacity-70">CVV</span>
-              <p className="font-medium">323</p>
+            <div className="text-right text-xs">
+              <span className="opacity-70">Accounts</span>
+              <p className="font-medium">{loading ? "—" : accountCount}</p>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </Link>
   )
 }

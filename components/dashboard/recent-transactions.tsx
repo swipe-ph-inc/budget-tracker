@@ -1,5 +1,6 @@
 "use client"
 
+import { useCallback, useEffect, useState } from "react"
 import { SlidersHorizontal } from "lucide-react"
 import {
   Table,
@@ -10,91 +11,82 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import { getRecentTransactionsForDashboard } from "@/app/actions/dashboard"
+import type { RecentTransactionItem } from "@/app/actions/dashboard"
 
-const transactions = [
-  {
-    name: "Electricity Bill",
-    category: "Payments",
-    date: "2028-03-01",
-    time: "04:28:48",
-    amount: "$295.81",
-    note: "Payment for monthly electricity bill",
-    status: "Failed",
-  },
-  {
-    name: "Weekly Groceries",
-    category: "Shopping",
-    date: "2028-03-04",
-    time: "04:28:48",
-    amount: "$204.07",
-    note: "Groceries shopping at local supermarket",
-    status: "Completed",
-  },
-  {
-    name: "Movie Night",
-    category: "Entertainment",
-    date: "2028-02-27",
-    time: "04:28:48",
-    amount: "$97.84",
-    note: "Tickets for movies and snacks",
-    status: "Pending",
-  },
-  {
-    name: "Medical Check-up",
-    category: "Healthcare",
-    date: "2028-02-07",
-    time: "04:28:48",
-    amount: "$323.33",
-    note: "Routine health check-up and medications",
-    status: "Pending",
-  },
-  {
-    name: "Dinner at Italian Restaurant",
-    category: "Dining Out",
-    date: "2028-02-11",
-    time: "04:28:48",
-    amount: "$226.25",
-    note: "Dining out with family at a local Italian restaurant",
-    status: "Pending",
-  },
-]
+function formatAmount(amount: number, currency: string): string {
+  const formatted = new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: currency || "PHP",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Math.abs(amount))
+  return amount >= 0 ? `+${formatted}` : `-${formatted}`
+}
 
-function StatusBadge({ status }: { status: string }) {
-  switch (status) {
-    case "Completed":
-      return (
-        <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary font-medium">
-          {status}
-        </Badge>
-      )
-    case "Failed":
-      return (
-        <Badge variant="outline" className="border-destructive/30 bg-destructive/10 text-destructive font-medium">
-          {status}
-        </Badge>
-      )
-    case "Pending":
-      return (
-        <Badge variant="outline" className="border-warning/30 bg-warning/10 text-warning font-medium">
-          {status}
-        </Badge>
-      )
-    default:
-      return <Badge variant="outline">{status}</Badge>
+function formatDateTime(iso: string): { date: string; time: string } {
+  if (!iso) return { date: "—", time: "" }
+  const d = new Date(iso)
+  return {
+    date: d.toLocaleDateString(undefined, { dateStyle: "short" }),
+    time: d.toLocaleTimeString(undefined, { timeStyle: "short" }),
   }
 }
 
+function StatusBadge({ status }: { status: string }) {
+  const lower = status.toLowerCase()
+  if (lower === "completed") {
+    return (
+      <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary font-medium">
+        {status}
+      </Badge>
+    )
+  }
+  if (lower === "failed") {
+    return (
+      <Badge variant="outline" className="border-destructive/30 bg-destructive/10 text-destructive font-medium">
+        {status}
+      </Badge>
+    )
+  }
+  if (lower === "pending" || lower === "processing") {
+    return (
+      <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-700 font-medium dark:text-amber-400">
+        {status}
+      </Badge>
+    )
+  }
+  return <Badge variant="outline">{status}</Badge>
+}
+
 export function RecentTransactions() {
+  const [transactions, setTransactions] = useState<RecentTransactionItem[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const data = await getRecentTransactionsForDashboard(10)
+      setTransactions(data)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
   return (
     <div className="rounded-xl border border-border bg-card p-5">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-card-foreground">Recent Transactions</h3>
         <div className="flex items-center gap-2">
-          <select className="rounded-lg border border-input bg-background px-3 py-1.5 text-xs text-foreground focus:outline-none">
-            <option>This Month</option>
-            <option>Last Month</option>
-          </select>
-          <button className="flex h-8 w-8 items-center justify-center rounded-lg border border-input bg-background text-muted-foreground hover:text-foreground">
+          <button
+            type="button"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-input bg-background text-muted-foreground hover:text-foreground"
+            aria-label="Filter"
+          >
             <SlidersHorizontal className="h-4 w-4" />
           </button>
         </div>
@@ -112,31 +104,50 @@ export function RecentTransactions() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {transactions.map((tx) => (
-              <TableRow key={tx.name} className="hover:bg-muted/50">
-                <TableCell>
-                  <div>
-                    <p className="text-sm font-medium text-card-foreground">{tx.name}</p>
-                    <p className="text-xs text-muted-foreground">{tx.category}</p>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div>
-                    <p className="text-sm text-card-foreground">{tx.date}</p>
-                    <p className="text-xs text-muted-foreground">{tx.time}</p>
-                  </div>
-                </TableCell>
-                <TableCell className="text-sm font-medium text-card-foreground">
-                  {tx.amount}
-                </TableCell>
-                <TableCell className="max-w-[200px] text-sm text-muted-foreground">
-                  {tx.note}
-                </TableCell>
-                <TableCell>
-                  <StatusBadge status={tx.status} />
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center text-sm text-muted-foreground">
+                  Loading…
                 </TableCell>
               </TableRow>
-            ))}
+            ) : transactions.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center text-sm text-muted-foreground">
+                  No recent transactions
+                </TableCell>
+              </TableRow>
+            ) : (
+              transactions.map((tx) => {
+                const { date, time } = formatDateTime(tx.date)
+                return (
+                  <TableRow key={tx.id} className="hover:bg-muted/50">
+                    <TableCell>
+                      <div>
+                        <p className="text-sm font-medium text-card-foreground">{tx.name}</p>
+                        <p className="text-xs text-muted-foreground">{tx.category}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="text-sm text-card-foreground">{date}</p>
+                        {time && <p className="text-xs text-muted-foreground">{time}</p>}
+                      </div>
+                    </TableCell>
+                    <TableCell
+                      className={`text-sm font-medium ${tx.amount >= 0 ? "text-primary" : "text-card-foreground"}`}
+                    >
+                      {formatAmount(tx.amount, tx.currency)}
+                    </TableCell>
+                    <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
+                      {tx.note ?? "—"}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={tx.status} />
+                    </TableCell>
+                  </TableRow>
+                )
+              })
+            )}
           </TableBody>
         </Table>
       </div>
