@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useTransition } from "react"
 import Link from "next/link"
 import { Check, Zap, Crown, Building2, ArrowRight, CreditCard, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -13,6 +13,8 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
+import { createCheckoutSession } from "@/app/actions/billing"
+import { useToast } from "@/hooks/use-toast"
 
 const plans = [
   {
@@ -92,6 +94,22 @@ const faqs = [
 export default function SubscriptionPage() {
   const [billing, setBilling] = useState<"monthly" | "yearly">("monthly")
   const [openFaq, setOpenFaq] = useState<number | null>(null)
+  const [isPending, startTransition] = useTransition()
+  const { toast } = useToast()
+
+  const handleUpgrade = (interval: "monthly" | "yearly") => {
+    startTransition(async () => {
+      const result = await createCheckoutSession(interval === "monthly" ? "month" : "year")
+      if (!result.success) {
+        toast({
+          title: "Upgrade failed",
+          description: result.error,
+        })
+        return
+      }
+      window.location.href = result.url
+    })
+  }
 
   return (
     <>
@@ -239,8 +257,19 @@ export default function SubscriptionPage() {
                         : "border-border bg-background text-foreground hover:bg-accent"
                     }`}
                     variant={plan.popular ? "default" : "outline"}
+                    type="button"
+                    disabled={isPending || plan.id === "business"}
+                    onClick={
+                      plan.id === "pro"
+                        ? () => handleUpgrade(billing)
+                        : undefined
+                    }
                   >
-                    {plan.id === "business" ? "Contact Sales" : "Upgrade to Pro"}
+                    {plan.id === "business"
+                      ? "Contact Sales"
+                      : isPending
+                        ? "Redirecting…"
+                        : "Upgrade to Pro"}
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 )}
