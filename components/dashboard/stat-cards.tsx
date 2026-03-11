@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { Wallet, DollarSign, Landmark, MoreVertical } from "lucide-react"
-import { getDashboardStats } from "@/app/actions/dashboard"
+import { getDashboardStats, type DashboardStats } from "@/app/actions/dashboard"
 
 function formatAmount(amount: number, currency: string): string {
   return new Intl.NumberFormat(undefined, {
@@ -37,9 +37,9 @@ const STAT_CONFIG = [
   },
 ]
 
-export function StatCards() {
-  const [stats, setStats] = useState<{ totalIncome: number; totalExpense: number; totalSavings: number; currency: string } | null>(null)
-  const [loading, setLoading] = useState(true)
+export function StatCards({ initialData }: { initialData?: DashboardStats | null } = {}) {
+  const [stats, setStats] = useState<DashboardStats | null>(initialData ?? null)
+  const [loading, setLoading] = useState(!initialData)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -52,8 +52,13 @@ export function StatCards() {
   }, [])
 
   useEffect(() => {
+    if (initialData !== undefined) {
+      setStats(initialData)
+      setLoading(false)
+      return
+    }
     void load()
-  }, [load])
+  }, [initialData, load])
 
   const getValue = (key: "income" | "expense" | "savings") => {
     if (!stats) return "—"

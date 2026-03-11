@@ -14,10 +14,12 @@ function formatAmount(amount: number, currency: string): string {
   }).format(amount)
 }
 
-export function StatisticPanel() {
-  const [data, setData] = useState<StatisticPanelData | null>(null)
+export function StatisticPanel({
+  initialData,
+}: { initialData?: StatisticPanelData } = {}) {
+  const [data, setData] = useState<StatisticPanelData | null>(initialData ?? null)
   const [period, setPeriod] = useState<"this_month" | "last_month">("this_month")
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!initialData)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -30,8 +32,13 @@ export function StatisticPanel() {
   }, [period])
 
   useEffect(() => {
+    if (initialData !== undefined && period === "this_month") {
+      setData(initialData)
+      setLoading(false)
+      return
+    }
     void load()
-  }, [load])
+  }, [initialData, period, load])
 
   const expenseData = data?.expenseByCategory ?? []
   const hasExpense = (data?.expenseTotal ?? 0) > 0

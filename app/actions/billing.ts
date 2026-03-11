@@ -4,6 +4,45 @@ import Stripe from "stripe"
 import { createClient } from "@/lib/supabase/server"
 import type { Database } from "@/lib/supabase/database.types"
 
+export type ActiveSubscription = {
+  status: Database["public"]["Enums"]["subscription_status_enum"]
+  planName: string | null
+  planSlug: string | null
+  interval: string | null
+  currentPeriodEnd: string | null
+  cancelAtPeriodEnd: boolean
+} | null
+
+export async function getActiveSubscription(): Promise<ActiveSubscription> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const { data } = await supabase
+    .from("subscription")
+    .select("status, cancel_at_period_end, current_period_end, subscription_plan(name, slug, interval)")
+    .eq("user_id", user.id)
+    .in("status", ["active", "trialing", "past_due"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (!data) return null
+
+  const plan = data.subscription_plan as { name: string; slug: string; interval: string } | null
+
+  return {
+    status: data.status,
+    planName: plan?.name ?? null,
+    planSlug: plan?.slug ?? null,
+    interval: plan?.interval ?? null,
+    currentPeriodEnd: data.current_period_end,
+    cancelAtPeriodEnd: data.cancel_at_period_end,
+  }
+}
+
 type UserProfileRow = Database["public"]["Tables"]["user_profile"]["Row"]
 type UserProfileInsert = Database["public"]["Tables"]["user_profile"]["Insert"]
 
@@ -111,14 +150,22 @@ export async function createCheckoutSession(billingInterval: "month" | "year" = 
     })
 
     if (!session.url) {
-      return { success: false, error: "Failed to create Stripe Checkout session." }
+      return {
+        success: false,
+        error: "We couldn’t start the checkout session. Please try again in a moment.",
+      }
     }
 
     return { success: true, url: session.url }
-  } catch (error: any) {
+  } catch (error: unknown) {
+    // Log minimal structured detail server-side without exposing internals to the client.
+    console.error("[billing] createCheckoutSession failed", {
+      message: error instanceof Error ? error.message : String(error),
+    })
+
     return {
       success: false,
-      error: error?.message ?? "Unexpected error while creating Stripe Checkout session.",
+      error: "We couldn’t start your upgrade right now. Please try again or contact support if this continues.",
     }
   }
 }

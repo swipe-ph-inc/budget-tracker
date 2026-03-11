@@ -18,9 +18,11 @@ function formatAmount(amount: number, currency: string): string {
   }).format(amount)
 }
 
-export function SavingPlans() {
-  const [plans, setPlans] = useState<SavingPlanListItem[]>([])
-  const [loading, setLoading] = useState(true)
+export function SavingPlans({
+  initialData,
+}: { initialData?: SavingPlanListItem[] } = {}) {
+  const [plans, setPlans] = useState<SavingPlanListItem[]>(initialData ?? [])
+  const [loading, setLoading] = useState(!initialData)
 
   const loadPlans = useCallback(async () => {
     setLoading(true)
@@ -33,8 +35,13 @@ export function SavingPlans() {
   }, [])
 
   useEffect(() => {
+    if (initialData !== undefined) {
+      setPlans(initialData)
+      setLoading(false)
+      return
+    }
     void loadPlans()
-  }, [loadPlans])
+  }, [initialData, loadPlans])
 
   const totalSavings = plans.reduce((s, p) => s + p.current_amount, 0)
   const primaryCurrency = plans[0]?.currency ?? "PHP"

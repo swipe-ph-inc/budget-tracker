@@ -1,7 +1,6 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { TopHeader } from "@/components/top-header"
 import { ArrowLeftRight } from "lucide-react"
 import Link from "next/link"
 import { getTransfers, type TransferListItem, type GetTransfersFilters } from "@/app/actions/transaction"
@@ -129,7 +128,6 @@ export default function TransfersPage() {
 
   return (
     <>
-      <TopHeader title="Transfers" />
       <div className="flex-1 overflow-y-auto p-4 lg:p-6">
         <div className="mx-auto max-w-6xl space-y-5">
           {/* Breadcrumb / Back */}

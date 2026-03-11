@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Wifi } from "lucide-react"
 import { getAccounts } from "@/app/actions/accounts"
 import { getProfile } from "@/app/actions/profile"
+import type { ProfileData } from "@/app/actions/profile"
 
 function formatBalance(amount: number, currency: string): string {
   return new Intl.NumberFormat(undefined, {
@@ -15,37 +16,56 @@ function formatBalance(amount: number, currency: string): string {
   }).format(amount)
 }
 
-export function BalanceCard() {
+type AccountLike = { balance?: number | null; currency?: string | null }
+type BalanceCardInitialData = { accounts: AccountLike[]; profile: ProfileData }
+
+function deriveState(accounts: AccountLike[], profile: ProfileData) {
+  const total = (accounts ?? []).reduce((sum, a) => sum + (a.balance ?? 0), 0)
+  const primaryCurrency = accounts?.[0]?.currency ?? profile?.profile?.currency ?? "PHP"
+  const displayName =
+    profile?.profile?.first_name || profile?.profile?.last_name
+      ? [profile.profile.first_name, profile.profile.last_name].filter(Boolean).join(" ") ?? null
+      : null
+  return { totalBalance: total, currency: primaryCurrency, accountCount: accounts?.length ?? 0, displayName }
+}
+
+export function BalanceCard({
+  initialData,
+}: {
+  initialData?: BalanceCardInitialData
+} = {}) {
   const [totalBalance, setTotalBalance] = useState(0)
   const [currency, setCurrency] = useState("PHP")
   const [accountCount, setAccountCount] = useState(0)
   const [displayName, setDisplayName] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!initialData)
 
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
       const [accounts, profile] = await Promise.all([getAccounts(), getProfile()])
-      const total = (accounts ?? []).reduce((sum, a) => sum + (a.balance ?? 0), 0)
-      const primaryCurrency = accounts?.[0]?.currency ?? profile?.profile?.currency ?? "PHP"
-      setTotalBalance(total)
-      setCurrency(primaryCurrency)
-      setAccountCount(accounts?.length ?? 0)
-      if (profile?.profile?.first_name || profile?.profile?.last_name) {
-        setDisplayName(
-          [profile.profile.first_name, profile.profile.last_name].filter(Boolean).join(" ") ?? null
-        )
-      } else {
-        setDisplayName(null)
-      }
+      const state = deriveState(accounts ?? [], profile)
+      setTotalBalance(state.totalBalance)
+      setCurrency(state.currency)
+      setAccountCount(state.accountCount)
+      setDisplayName(state.displayName)
     } finally {
       setLoading(false)
     }
   }, [])
 
   useEffect(() => {
+    if (initialData) {
+      const state = deriveState(initialData.accounts, initialData.profile)
+      setTotalBalance(state.totalBalance)
+      setCurrency(state.currency)
+      setAccountCount(state.accountCount)
+      setDisplayName(state.displayName)
+      setLoading(false)
+      return
+    }
     void loadData()
-  }, [loadData])
+  }, [initialData, loadData])
 
   return (
     <Link href="/dashboard/account" className="block">

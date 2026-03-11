@@ -1,4 +1,3 @@
-import { TopHeader } from "@/components/top-header"
 import { TrendingUp, TrendingDown, BarChart3, DollarSign } from "lucide-react"
 
 const portfolio = [
@@ -12,7 +11,6 @@ const portfolio = [
 export default function InvestmentPage() {
   return (
     <>
-      <TopHeader title="Investment" />
       <div className="flex-1 overflow-y-auto p-4 lg:p-6">
         {/* Summary */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

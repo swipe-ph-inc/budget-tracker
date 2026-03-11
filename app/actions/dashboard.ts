@@ -6,6 +6,9 @@ import { getPayments } from "@/app/actions/transaction"
 import { getTransfers } from "@/app/actions/transaction"
 import { getSavingPlans } from "@/app/actions/saving-plans"
 import { getAccounts } from "@/app/actions/accounts"
+import { getProfile } from "@/app/actions/profile"
+import type { ProfileData } from "@/app/actions/profile"
+import type { SavingPlanListItem } from "@/app/actions/saving-plans"
 
 export type DashboardStats = {
   totalIncome: number
@@ -26,8 +29,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   const { from, to } = getYearRange(year)
 
   const [incomeList, paymentsList, plans] = await Promise.all([
-    getIncome({ dateFrom: from, dateTo: to, limit: 10_000 }),
-    getPayments({ dateFrom: from, dateTo: to, limit: 10_000 }),
+    getIncome({ dateFrom: from, dateTo: to, limit: 1_000 }),
+    getPayments({ dateFrom: from, dateTo: to, limit: 1_000 }),
     getSavingPlans(),
   ])
 
@@ -54,8 +57,8 @@ export async function getDashboardCashflow(
   const { from, to } = getYearRange(year)
 
   const [incomeList, paymentsList] = await Promise.all([
-    getIncome({ dateFrom: from, dateTo: to, limit: 10_000 }),
-    getPayments({ dateFrom: from, dateTo: to, limit: 10_000 }),
+    getIncome({ dateFrom: from, dateTo: to, limit: 1_000 }),
+    getPayments({ dateFrom: from, dateTo: to, limit: 1_000 }),
   ])
 
   const byMonth: Record<number, { income: number; expense: number }> = {}
@@ -206,14 +209,14 @@ export async function getStatisticPanelData(
     error: authError,
   } = await supabase.auth.getUser()
   if (authError || !user) {
-    const incomeList = await getIncome({ dateFrom: from, dateTo: to, limit: 10_000 })
+    const incomeList = await getIncome({ dateFrom: from, dateTo: to, limit: 1_000 })
     const incomeTotal = (incomeList ?? []).reduce((s, i) => s + i.amount, 0)
     const currency = incomeList?.[0]?.currency ?? "PHP"
     return { incomeTotal, expenseTotal: 0, expenseByCategory: [], currency }
   }
 
   const [incomeList, { data: paymentRows }] = await Promise.all([
-    getIncome({ dateFrom: from, dateTo: to, limit: 10_000 }),
+    getIncome({ dateFrom: from, dateTo: to, limit: 1_000 }),
     supabase
       .from("payment")
       .select("amount, merchant:merchant_id(merchant_category(name))")
@@ -256,6 +259,54 @@ export type RecentActivityItem = {
   sublabel: string
   time: string
   type: "income" | "payment" | "transfer"
+}
+
+/** Single-call payload for the dashboard page so all sections load together. */
+export type DashboardPageData = {
+  accounts: Awaited<ReturnType<typeof getAccounts>>
+  profile: ProfileData
+  stats: DashboardStats
+  savingPlans: SavingPlanListItem[]
+  cashflow: DashboardCashflowMonth[]
+  totalBalance: { total: number; currency: string }
+  recentTransactions: RecentTransactionItem[]
+  statisticPanel: StatisticPanelData
+  recentActivity: RecentActivityItem[]
+}
+
+export async function getDashboardPageData(): Promise<DashboardPageData> {
+  const [
+    accounts,
+    profile,
+    stats,
+    savingPlans,
+    cashflow,
+    totalBalance,
+    recentTransactions,
+    statisticPanel,
+    recentActivity,
+  ] = await Promise.all([
+    getAccounts(),
+    getProfile(),
+    getDashboardStats(),
+    getSavingPlans(),
+    getDashboardCashflow("this_year"),
+    getDashboardTotalBalance(),
+    getRecentTransactionsForDashboard(10),
+    getStatisticPanelData("this_month"),
+    getRecentActivityForDashboard(15),
+  ])
+  return {
+    accounts: accounts ?? [],
+    profile,
+    stats,
+    savingPlans: savingPlans ?? [],
+    cashflow,
+    totalBalance,
+    recentTransactions,
+    statisticPanel,
+    recentActivity,
+  }
 }
 
 export async function getRecentActivityForDashboard(limit = 15): Promise<RecentActivityItem[]> {

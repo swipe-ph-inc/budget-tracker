@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import type { Database } from "@/lib/supabase/database.types"
+import { getActiveSubscription } from "@/app/actions/billing"
 
 type SavingPlanRow = Database["public"]["Tables"]["saving_plan"]["Row"]
 type SavingPlanInsert = Database["public"]["Tables"]["saving_plan"]["Insert"]
@@ -52,7 +53,7 @@ export async function getSavingPlans(): Promise<SavingPlanListItem[]> {
   if (error) return []
 
   type Row = SavingPlanRow & { account?: { name: string } | null }
-  return (data ?? []).map((row: Row) => ({
+  return ((data ?? []) as Row[]).map((row) => ({
     id: row.id,
     name: row.name,
     current_amount: Number(row.current_amount),
@@ -87,6 +88,23 @@ export async function createSavingPlan(params: {
 
   if (authError || !user) {
     return { success: false, error: "You must be signed in." }
+  }
+
+  // Free plan: allow only 1 saving plan. Pro (active subscription) = unlimited.
+  const subscription = await getActiveSubscription()
+  if (!subscription) {
+    const { count, error: countError } = await supabase
+      .from("saving_plan")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .in("status", ["in_progress", "behind_schedule"])
+
+    if (!countError && (count ?? 0) >= 1) {
+      return {
+        success: false,
+        error: "Free plan allows 1 saving plan. Upgrade to Pro for unlimited saving plans.",
+      }
+    }
   }
 
   const name = params.name?.trim()
@@ -256,7 +274,7 @@ export async function getContributions(planId: string): Promise<ContributionList
     from_account?: { name: string } | null
     to_account?: { name: string } | null
   }
-  return (data ?? []).map((row: Row) => ({
+  return ((data ?? []) as unknown as Row[]).map((row) => ({
     id: row.id,
     amount: Number(row.amount),
     contribution_type: row.contribution_type,

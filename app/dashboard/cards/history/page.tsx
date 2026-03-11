@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { TopHeader } from "@/components/top-header"
 import { Badge } from "@/components/ui/badge"
 import { CreditCard, ChevronLeft, ChevronRight, ChevronDown, Wallet, Receipt } from "lucide-react"
 import {
@@ -180,7 +179,6 @@ export default function CardHistoryPage() {
   if (!cardId) {
     return (
       <div className="min-h-screen bg-background">
-        <TopHeader title="Card History" />
         <main className="w-full px-2 py-4 sm:px-4 sm:py-6 lg:px-6 lg:py-8">
           <div className="mx-auto max-w-screen-2xl">
             <section className="rounded-2xl border border-border bg-card p-8 text-center">
@@ -203,7 +201,6 @@ export default function CardHistoryPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <TopHeader title="Card History" />
       <main className="w-full px-2 py-4 sm:px-4 sm:py-6 lg:px-6 lg:py-8">
         <div className="mx-auto w-full max-w-screen-2xl">
           <section className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 lg:p-5">

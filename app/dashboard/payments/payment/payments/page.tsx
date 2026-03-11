@@ -1,7 +1,6 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { TopHeader } from "@/components/top-header"
 import { CreditCard } from "lucide-react"
 import Link from "next/link"
 import {
@@ -163,7 +162,6 @@ export default function PaymentsPage() {
 
   return (
     <>
-      <TopHeader title="Payments" />
       <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6">
         <div className="mx-auto max-w-6xl min-w-0 space-y-4 sm:space-y-5">
           {/* Breadcrumb / Back */}

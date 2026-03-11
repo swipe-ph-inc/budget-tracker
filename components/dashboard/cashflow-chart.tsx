@@ -10,8 +10,13 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts"
-import { getDashboardCashflow, getDashboardTotalBalance } from "@/app/actions/dashboard"
-import type { DashboardCashflowMonth } from "@/app/actions/dashboard"
+import {
+  getDashboardCashflow,
+  getDashboardTotalBalance,
+} from "@/app/actions/dashboard"
+import type {
+  DashboardCashflowMonth,
+} from "@/app/actions/dashboard"
 
 function formatBalance(amount: number, currency: string): string {
   return new Intl.NumberFormat(undefined, {
@@ -22,11 +27,20 @@ function formatBalance(amount: number, currency: string): string {
   }).format(amount)
 }
 
-export function CashflowChart() {
-  const [data, setData] = useState<DashboardCashflowMonth[]>([])
-  const [balance, setBalance] = useState<{ total: number; currency: string } | null>(null)
+type CashflowInitialData = {
+  cashflow: DashboardCashflowMonth[]
+  totalBalance: { total: number; currency: string }
+}
+
+export function CashflowChart({
+  initialData,
+}: { initialData?: CashflowInitialData } = {}) {
+  const [data, setData] = useState<DashboardCashflowMonth[]>(initialData?.cashflow ?? [])
+  const [balance, setBalance] = useState<{ total: number; currency: string } | null>(
+    initialData?.totalBalance ?? null
+  )
   const [period, setPeriod] = useState<"this_year" | "last_year">("this_year")
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!initialData)
 
   const loadCashflow = useCallback(async () => {
     setLoading(true)
@@ -43,8 +57,14 @@ export function CashflowChart() {
   }, [period])
 
   useEffect(() => {
+    if (initialData && period === "this_year") {
+      setData(initialData.cashflow)
+      setBalance(initialData.totalBalance)
+      setLoading(false)
+      return
+    }
     void loadCashflow()
-  }, [loadCashflow])
+  }, [initialData, period, loadCashflow])
 
   const year = period === "this_year" ? new Date().getFullYear() : new Date().getFullYear() - 1
 

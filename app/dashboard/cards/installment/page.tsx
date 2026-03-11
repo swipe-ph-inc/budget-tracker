@@ -2,7 +2,6 @@
 
 import Link from "next/link"
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { TopHeader } from "@/components/top-header"
 import { Badge } from "@/components/ui/badge"
 import { CreditCard, Percent, MoreHorizontal, Banknote, Trash } from "lucide-react"
 import {
@@ -140,7 +139,6 @@ export default function CardInstallmentPage() {
 
     return (
         <div className="min-h-screen bg-background">
-            <TopHeader title="Card Installments" />
             <main className="w-full px-2 py-4 sm:px-4 sm:py-6 lg:px-6 lg:py-8">
                 <div className="w-full flex justify-center">
                     <section className="w-full max-w-screen-2xl flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 lg:p-5 mx-auto">

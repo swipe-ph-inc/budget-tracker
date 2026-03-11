@@ -93,18 +93,19 @@ export function AppSidebar() {
           isCollapsed ? "justify-center px-0" : "justify-between"
         )}
       >
-        <div className={cn("flex items-center gap-2", isCollapsed && "justify-center")}>
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center">
-            <svg viewBox="0 0 32 32" className="h-7 w-7 text-primary" fill="currentColor" aria-hidden>
-              <circle cx="10" cy="10" r="4" />
-              <circle cx="22" cy="10" r="4" />
-              <circle cx="10" cy="22" r="4" />
-              <circle cx="22" cy="22" r="4" />
-            </svg>
-          </div>
-          {!isCollapsed && (
-            <span className="text-lg font-bold tracking-tight text-foreground">COINEST</span>
-          )}
+        <div className={cn("flex items-center", isCollapsed ? "justify-center" : "gap-3")}>
+          <Link href="/dashboard" className={cn("flex items-center", isCollapsed ? "justify-center" : "gap-1")}>
+            <img
+              src="/logo-no-lable-no-bg.png"
+              alt="Clairo"
+              className={cn("h-14 w-auto object-contain", isCollapsed && "h-10")}
+              width={isCollapsed ? 40 : 56}
+              height={isCollapsed ? 40 : 56}
+            />
+            {!isCollapsed && (
+              <span className="text-xl font-bold tracking-tight text-foreground">Clairo</span>
+            )}
+          </Link>
         </div>
         {!isCollapsed && (
           <button
@@ -299,10 +300,10 @@ export function AppSidebar() {
         {sidebarContent()}
       </aside>
 
-      {/* Desktop sidebar — collapsible to icon-only strip */}
+      {/* Desktop sidebar — fixed on left, full height, only main content scrolls */}
       <aside
         className={cn(
-          "hidden lg:flex h-screen flex-col border-r border-sidebar-border bg-sidebar shrink-0 transition-[width] duration-200",
+          "hidden lg:flex fixed left-0 top-0 z-30 h-screen flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200",
           collapsed ? "w-16" : "w-[220px]"
         )}
       >

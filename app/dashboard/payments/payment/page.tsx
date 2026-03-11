@@ -1,7 +1,6 @@
 "use client"
 
 import Link from "next/link"
-import { TopHeader } from "@/components/top-header"
 import { Search, SlidersHorizontal, CreditCard, Plus, ChevronDown, MoreHorizontal, Copy, Globe, Tv, HeartPulse, ShoppingCart, Shield, FolderPlus, Store, FileDown, FileUp, CalendarRange, Calendar, WalletCards, Wallet } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -404,7 +403,6 @@ export default function PaymentPage() {
 
   return (
     <>
-      <TopHeader title="Payment" />
       <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6">
         <Breadcrumb className="mb-4">
           <BreadcrumbList>

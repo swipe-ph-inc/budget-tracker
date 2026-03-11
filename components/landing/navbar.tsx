@@ -13,15 +13,13 @@ export function Navbar() {
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-primary-foreground">
-              <rect x="3" y="3" width="8" height="8" rx="1.5" fill="currentColor" />
-              <rect x="13" y="3" width="8" height="8" rx="1.5" fill="currentColor" />
-              <rect x="3" y="13" width="8" height="8" rx="1.5" fill="currentColor" />
-              <rect x="13" y="13" width="8" height="8" rx="1.5" fill="currentColor" />
-            </svg>
-          </div>
-          <span className="text-lg font-bold text-foreground">COINEST</span>
+          <img
+            src="/logo-no-lable-no-bg.png"
+            alt="Clairo"
+            className="h-8 w-auto object-contain"
+            width={120}
+            height={32}
+          />
         </Link>
 
         {/* Desktop nav */}

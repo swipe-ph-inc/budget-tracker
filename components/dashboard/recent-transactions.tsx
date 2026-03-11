@@ -11,8 +11,10 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { getRecentTransactionsForDashboard } from "@/app/actions/dashboard"
-import type { RecentTransactionItem } from "@/app/actions/dashboard"
+import {
+  getRecentTransactionsForDashboard,
+  type RecentTransactionItem,
+} from "@/app/actions/dashboard"
 
 function formatAmount(amount: number, currency: string): string {
   const formatted = new Intl.NumberFormat(undefined, {
@@ -59,9 +61,13 @@ function StatusBadge({ status }: { status: string }) {
   return <Badge variant="outline">{status}</Badge>
 }
 
-export function RecentTransactions() {
-  const [transactions, setTransactions] = useState<RecentTransactionItem[]>([])
-  const [loading, setLoading] = useState(true)
+export function RecentTransactions({
+  initialData,
+}: { initialData?: RecentTransactionItem[] } = {}) {
+  const [transactions, setTransactions] = useState<RecentTransactionItem[]>(
+    initialData ?? []
+  )
+  const [loading, setLoading] = useState(!initialData)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -74,8 +80,13 @@ export function RecentTransactions() {
   }, [])
 
   useEffect(() => {
+    if (initialData !== undefined) {
+      setTransactions(initialData)
+      setLoading(false)
+      return
+    }
     void load()
-  }, [load])
+  }, [initialData, load])
 
   return (
     <div className="rounded-xl border border-border bg-card p-5">

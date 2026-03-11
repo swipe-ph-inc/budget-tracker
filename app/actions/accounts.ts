@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import type { Database } from "@/lib/supabase/database.types"
+import { getActiveSubscription } from "@/app/actions/billing"
 
 type AccountRow = Database["public"]["Tables"]["account"]["Row"]
 type AccountInsert = Database["public"]["Tables"]["account"]["Insert"]
@@ -53,6 +54,24 @@ export async function createAccount(
 
     if (authError || !user) {
         return { success: false, error: "You must be signed in to add an account." }
+    }
+
+    // Free plan: max 3 accounts. Pro (active subscription) = unlimited.
+    const subscription = await getActiveSubscription()
+    if (!subscription) {
+        const { count, error: countError } = await supabase
+            .from("account")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", user.id)
+            .eq("is_deleted", false)
+            .eq("is_active", true)
+
+        if (!countError && (count ?? 0) >= 3) {
+            return {
+                success: false,
+                error: "Free plan allows up to 3 accounts. Upgrade to Pro for unlimited accounts.",
+            }
+        }
     }
 
     const name = values.accountName?.trim()

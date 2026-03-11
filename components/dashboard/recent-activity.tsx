@@ -19,9 +19,13 @@ function getInitials(label: string): string {
   return "—"
 }
 
-export function RecentActivity() {
-  const [activities, setActivities] = useState<RecentActivityItem[]>([])
-  const [loading, setLoading] = useState(true)
+export function RecentActivity({
+  initialData,
+}: { initialData?: RecentActivityItem[] } = {}) {
+  const [activities, setActivities] = useState<RecentActivityItem[]>(
+    initialData ?? []
+  )
+  const [loading, setLoading] = useState(!initialData)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -34,8 +38,13 @@ export function RecentActivity() {
   }, [])
 
   useEffect(() => {
+    if (initialData !== undefined) {
+      setActivities(initialData)
+      setLoading(false)
+      return
+    }
     void load()
-  }, [load])
+  }, [initialData, load])
 
   const byDay = activities.reduce<Record<string, RecentActivityItem[]>>((acc, item) => {
     const day = item.sublabel

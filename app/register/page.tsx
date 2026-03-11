@@ -35,15 +35,13 @@ export default function RegisterPage() {
       <div className="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-primary p-10 lg:flex">
         <div className="relative z-10">
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-foreground/20">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-primary-foreground">
-                <rect x="3" y="3" width="8" height="8" rx="1.5" fill="currentColor" />
-                <rect x="13" y="3" width="8" height="8" rx="1.5" fill="currentColor" />
-                <rect x="3" y="13" width="8" height="8" rx="1.5" fill="currentColor" />
-                <rect x="13" y="13" width="8" height="8" rx="1.5" fill="currentColor" />
-              </svg>
-            </div>
-            <span className="text-xl font-bold text-primary-foreground">COINEST</span>
+            <img
+              src="/logo-no-lable-no-bg.png"
+              alt="Clairo"
+              className="h-9 w-auto object-contain"
+              width={100}
+              height={36}
+            />
           </Link>
         </div>
 
@@ -52,7 +50,7 @@ export default function RegisterPage() {
             Start your financial journey today
           </h1>
           <p className="mt-4 max-w-md text-pretty text-base leading-relaxed text-primary-foreground/80">
-            Join thousands of users who trust COINEST to manage their finances, track investments, and achieve their savings goals.
+            Join thousands of users who trust Clairo to manage their finances, track investments, and achieve their savings goals.
           </p>
 
           <div className="mt-8 flex flex-col gap-4">
@@ -83,15 +81,13 @@ export default function RegisterPage() {
         {/* Mobile header */}
         <div className="flex items-center justify-between p-6 lg:hidden">
           <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-primary-foreground">
-                <rect x="3" y="3" width="8" height="8" rx="1.5" fill="currentColor" />
-                <rect x="13" y="3" width="8" height="8" rx="1.5" fill="currentColor" />
-                <rect x="3" y="13" width="8" height="8" rx="1.5" fill="currentColor" />
-                <rect x="13" y="13" width="8" height="8" rx="1.5" fill="currentColor" />
-              </svg>
-            </div>
-            <span className="text-lg font-bold text-foreground">COINEST</span>
+            <img
+              src="/logo-no-lable-no-bg.png"
+              alt="Clairo"
+              className="h-8 w-auto object-contain"
+              width={120}
+              height={32}
+            />
           </Link>
         </div>
 

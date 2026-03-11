@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
-import { TopHeader } from "@/components/top-header"
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -107,7 +106,6 @@ export default function ProfilePage() {
 
   return (
     <>
-      <TopHeader title="Profile" />
       <main className="flex-1 overflow-y-auto p-4 lg:p-6">
         <div className="mx-auto max-w-screen-md flex flex-col gap-6 pb-8">
           <Breadcrumb>

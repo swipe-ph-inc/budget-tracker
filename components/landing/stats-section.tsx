@@ -1,9 +1,9 @@
 export function StatsSection() {
   const stats = [
-    { value: "50K+", label: "Active Users" },
-    { value: "$2.4B", label: "Transactions Processed" },
-    { value: "99.9%", label: "Uptime Guaranteed" },
-    { value: "4.9/5", label: "User Satisfaction" },
+    { value: "Free", label: "To Get Started" },
+    { value: "2 min", label: "Setup Time" },
+    { value: "256-bit", label: "Data Encryption" },
+    { value: "24/7", label: "Account Access" },
   ]
 
   return (

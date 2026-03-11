@@ -8,10 +8,9 @@ import {
 } from "@/components/credit-card/credit-card-visual"
 import { CardDetailsPanel } from "@/components/credit-card/card-details-panel"
 import { QuickActions } from "@/components/credit-card/quick-actions"
-import { getCreditCards, getInstallmentReservedByCard } from "@/app/actions/credit-cards"
+import { getCreditCardsPageData } from "@/app/actions/credit-cards"
 import type { Tables } from "@/lib/supabase/database.types"
 import { toast } from "@/hooks/use-toast"
-import { TopHeader } from "@/components/top-header"
 import { AddCreditCardDialog } from "@/components/credit-card/add-credit-card-dialog"
 import { Button } from "@/components/ui/button"
 
@@ -36,11 +35,66 @@ function mapRowToCard(row: CreditCardRow, installmentReserved?: number): CreditC
   }
 }
 
+function CardsPageSkeleton() {
+  return (
+    <main className="mx-auto max-w-screen-2xl px-4 py-6 lg:px-8 lg:py-8">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[300px_1fr] xl:grid-cols-[340px_1fr]">
+        <aside className="flex flex-col gap-5">
+          <div className="flex h-[calc(100vh-9rem)] flex-col rounded-2xl border border-border bg-card p-4 lg:p-5">
+            <div className="flex items-center justify-between">
+              <div className="h-5 w-24 animate-pulse rounded bg-muted" />
+              <div className="h-7 w-7 animate-pulse rounded border border-border bg-muted" />
+            </div>
+            <div className="mt-4 flex flex-1 flex-col gap-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-20 animate-pulse rounded-xl bg-muted" />
+              ))}
+            </div>
+          </div>
+        </aside>
+        <div className="flex h-[calc(100vh-9rem)] flex-col gap-6">
+          <div className="h-[140px] animate-pulse rounded-2xl bg-muted" />
+          <div className="min-h-0 flex-1 animate-pulse rounded-2xl border border-border bg-muted" />
+        </div>
+      </div>
+    </main>
+  )
+}
+
 export default function CardsPage() {
   const [cards, setCards] = useState<CreditCardData[]>([])
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [addDialogOpen, setAddDialogOpen] = useState(false)
+
+  const loadPageData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const data = await getCreditCardsPageData()
+      const mapped = data.cards.map((row) =>
+        mapRowToCard(row, data.reservedByCard[row.id])
+      )
+      setCards(mapped)
+      setSelectedCardId((current) => {
+        if (current && mapped.some((c) => c.id === current)) return current
+        return mapped.length > 0 ? mapped[0]!.id : null
+      })
+    } catch {
+      toast({
+        title: "Failed to load cards",
+        description: "There was a problem loading your credit cards.",
+        variant: "destructive",
+      })
+      setCards([])
+      setSelectedCardId(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadPageData()
+  }, [loadPageData])
 
   const selectedCard = useMemo(
     () => cards.find((c) => c.id === selectedCardId) ?? null,
@@ -65,96 +119,66 @@ export default function CardsPage() {
     [cards]
   )
 
-  const loadCards = useCallback(async () => {
-    setLoading(true)
-    try {
-      const [data, reserved] = await Promise.all([getCreditCards(), getInstallmentReservedByCard()])
-      const mapped = (data ?? []).map((row) => mapRowToCard(row, reserved[row.id]))
-      setCards(mapped)
-      setSelectedCardId((current) => {
-        if (current) return current
-        return mapped.length > 0 ? mapped[0]!.id : null
-      })
-    } catch (error) {
-      console.error(error)
-      toast({
-        title: "Failed to load cards",
-        description: "There was a problem loading your credit cards.",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    void loadCards()
-  }, [loadCards])
-
   return (
     <div className="min-h-screen bg-background">
-      <TopHeader title="Credit Cards" />
       <AddCreditCardDialog
         open={addDialogOpen}
         onOpenChange={setAddDialogOpen}
-        onCompleted={() => {
-          void loadCards()
-        }}
+        onCompleted={loadPageData}
       />
-      <main className="mx-auto max-w-screen-2xl px-4 py-6 lg:px-8 lg:py-8">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[300px_1fr] xl:grid-cols-[340px_1fr]">
-          {/* ── Left Column: Card List ────────────────── */}
-          <aside className="flex flex-col gap-5">
-            <div className="flex h-[calc(100vh-9rem)] flex-col rounded-2xl border border-border bg-card p-4 lg:p-5">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-card-foreground">
-                  My Cards
-                </h2>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="outline"
-                  className="h-7 w-7"
-                  aria-label="Add credit card"
-                  onClick={() => setAddDialogOpen(true)}
-                >
-                  <Plus className="h-3 w-3" />
-                </Button>
+      {loading ? (
+        <CardsPageSkeleton />
+      ) : (
+        <main className="mx-auto max-w-screen-2xl px-4 py-6 lg:px-8 lg:py-8">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[300px_1fr] xl:grid-cols-[340px_1fr]">
+            {/* ── Left Column: Card List ────────────────── */}
+            <aside className="flex flex-col gap-5">
+              <div className="flex h-[calc(100vh-9rem)] flex-col rounded-2xl border border-border bg-card p-4 lg:p-5">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-semibold text-card-foreground">
+                    My Cards
+                  </h2>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    className="h-7 w-7"
+                    aria-label="Add credit card"
+                    onClick={() => setAddDialogOpen(true)}
+                  >
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </div>
+                <div className="mt-4 flex flex-1 flex-col gap-3 overflow-y-auto pr-1">
+                  {cards.length === 0 ? (
+                    <div className="flex h-24 items-center justify-center text-xs text-muted-foreground">
+                      Add a credit card to get started.
+                    </div>
+                  ) : (
+                    cards.map((card) => (
+                      <CreditCardVisual
+                        key={card.id}
+                        card={card}
+                        compact
+                        selected={selectedCardId === card.id}
+                        onClick={() => setSelectedCardId(card.id)}
+                      />
+                    ))
+                  )}
+                </div>
               </div>
-              <div className="mt-4 flex flex-1 flex-col gap-3 overflow-y-auto pr-1">
-                {loading ? (
-                  <div className="flex h-24 items-center justify-center text-xs text-muted-foreground">
-                    Loading cards...
-                  </div>
-                ) : cards.length === 0 ? (
-                  <div className="flex h-24 items-center justify-center text-xs text-muted-foreground">
-                    Add a credit card to get started.
-                  </div>
-                ) : (
-                  cards.map((card) => (
-                    <CreditCardVisual
-                      key={card.id}
-                      card={card}
-                      compact
-                      selected={selectedCardId === card.id}
-                      onClick={() => setSelectedCardId(card.id)}
-                    />
-                  ))
-                )}
-              </div>
-            </div>
-          </aside>
+            </aside>
 
-          {/* ── Right Column: same height as card list ────────────────── */}
-          <div className="flex h-[calc(100vh-9rem)] flex-col gap-6">
-            <QuickActions />
-            {/* <RecentTransactionsSection creditCardId={selectedCardId} /> */}
-            <div className="min-h-0 flex-1">
-              <CardDetailsPanel card={selectedCard} onCardUpdated={loadCards} />
+            {/* ── Right Column: same height as card list ────────────────── */}
+            <div className="flex h-[calc(100vh-9rem)] flex-col gap-6">
+              <QuickActions />
+              <div className="min-h-0 flex-1">
+                <CardDetailsPanel card={selectedCard} onCardUpdated={loadPageData} />
+              </div>
             </div>
           </div>
-        </div>
-      </main>
+        </main>
+      )}
     </div>
   )
 }

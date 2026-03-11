@@ -3,7 +3,7 @@ import {
   ArrowLeftRight,
   Wallet,
   PiggyBank,
-  TrendingUp,
+  FileText,
   Bell,
 } from "lucide-react"
 
@@ -30,19 +30,19 @@ const features = [
     icon: PiggyBank,
     title: "Saving Plans",
     description:
-      "Set savings goals and track progress automatically. Create multiple plans for emergencies, vacations, or big purchases.",
+      "Set savings goals and track your progress over time. Create multiple plans for emergencies, vacations, or big purchases.",
   },
   {
-    icon: TrendingUp,
-    title: "Investment Tracking",
+    icon: FileText,
+    title: "Invoice Management",
     description:
-      "Monitor your investment portfolio performance with detailed analytics, market trends, and smart allocation insights.",
+      "Create, send, and track invoices with ease. Keep a full record of all invoices and their payment status in one place.",
   },
   {
     icon: Bell,
-    title: "Smart Insights",
+    title: "Smart Notifications",
     description:
-      "AI-powered spending analysis gives you personalized recommendations to optimize your budget and grow your wealth.",
+      "Stay on top of your finances with timely alerts for transactions, payment reminders, and account activity.",
   },
 ]
 
@@ -56,7 +56,7 @@ export function FeaturesSection() {
             Everything you need to manage your money
           </h2>
           <p className="mt-4 text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg">
-            From everyday payments to long-term investments, COINEST gives you the tools to make smarter financial decisions.
+            From everyday payments to long-term investments, Clairo gives you the tools to make smarter financial decisions.
           </p>
         </div>
 

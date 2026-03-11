@@ -1,13 +1,12 @@
-import { TopHeader } from "@/components/top-header"
 import { Star, Archive, Trash2 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 
 const messages = [
-  { from: "COINEST Support", subject: "Welcome to COINEST Pro!", preview: "Thank you for upgrading to Pro. Here's what you can do with your new features...", time: "2 hours ago", read: false, starred: true },
+  { from: "Clairo Support", subject: "Welcome to Clairo Pro!", preview: "Thank you for upgrading to Pro. Here's what you can do with your new features...", time: "2 hours ago", read: false, starred: true },
   { from: "Security Alert", subject: "New login detected", preview: "We detected a new login to your account from Chrome on macOS...", time: "5 hours ago", read: false, starred: false },
   { from: "Investment Team", subject: "Weekly Market Report", preview: "This week's market showed significant growth in tech sector. Here's your personalized report...", time: "1 day ago", read: true, starred: false },
-  { from: "Billing", subject: "Payment Confirmation", preview: "Your payment of $89.99 for COINEST Pro has been successfully processed...", time: "2 days ago", read: true, starred: true },
+  { from: "Billing", subject: "Payment Confirmation", preview: "Your payment of $89.99 for Clairo Pro has been successfully processed...", time: "2 days ago", read: true, starred: true },
   { from: "Morgan Lee", subject: "Shared budget plan", preview: "Hey Andrew, I've shared the vacation budget plan with you. Let me know your thoughts...", time: "3 days ago", read: true, starred: false },
   { from: "Promo Team", subject: "Exclusive: Get 2% cashback!", preview: "For a limited time, earn 2% cashback on all international transfers...", time: "4 days ago", read: true, starred: false },
 ]
@@ -15,7 +14,6 @@ const messages = [
 export default function InboxPage() {
   return (
     <>
-      <TopHeader title="Inbox" />
       <div className="flex-1 overflow-y-auto p-4 lg:p-6">
         {/* Toolbar */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

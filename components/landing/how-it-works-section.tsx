@@ -11,16 +11,16 @@ const steps = [
   {
     icon: CreditCard,
     step: "02",
-    title: "Link Your Accounts",
+    title: "Add Your Accounts",
     description:
-      "Securely connect your bank accounts, credit cards, and investment portfolios. All data is encrypted end-to-end.",
+      "Add your bank accounts and cards manually. Log transactions, manage virtual cards, and keep all your finances in one place.",
   },
   {
     icon: LineChart,
     step: "03",
     title: "Track & Grow",
     description:
-      "Monitor spending, set budgets, automate savings, and get AI-driven insights to grow your wealth over time.",
+      "Monitor spending, set saving goals, and review analytics to make smarter financial decisions over time.",
   },
 ]
 
@@ -34,7 +34,7 @@ export function HowItWorksSection() {
             Get started in three simple steps
           </h2>
           <p className="mt-4 text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg">
-            Setting up COINEST takes just a few minutes. Here is how you can start managing your finances better today.
+            Setting up Clairo takes just a few minutes. Here is how you can start managing your finances better today.
           </p>
         </div>
 

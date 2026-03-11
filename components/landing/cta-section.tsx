@@ -11,7 +11,7 @@ export function CtaSection() {
             Ready to take control of your finances?
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-pretty text-base leading-relaxed text-primary-foreground/80 sm:text-lg">
-            Join 50,000+ users who are already saving more, spending smarter, and building wealth with COINEST.
+            Start for free and take full control of your money — track spending, set saving goals, and manage payments all in one place.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
             <Link href="/dashboard">

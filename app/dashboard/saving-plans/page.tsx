@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
-import { TopHeader } from "@/components/top-header"
 import { Landmark, MoreHorizontal, Plus } from "lucide-react"
 import {
   Breadcrumb,
@@ -33,6 +32,7 @@ import {
 } from "@/app/actions/saving-plans"
 import { getAccounts } from "@/app/actions/accounts"
 import { toast } from "@/hooks/use-toast"
+import { getActiveSubscription } from "@/app/actions/billing"
 import {
   Select,
   SelectContent,
@@ -86,6 +86,7 @@ function StatusColor(status: string) {
 
 export default function SavingPlansPage() {
   const [plans, setPlans] = useState<SavingPlanListItem[]>([])
+  const [subscription, setSubscription] = useState<Awaited<ReturnType<typeof getActiveSubscription>> | undefined>(undefined)
   const [loading, setLoading] = useState(true)
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null)
   const [contributions, setContributions] = useState<ContributionListItem[]>([])
@@ -106,8 +107,9 @@ export default function SavingPlansPage() {
   const loadPlans = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await getSavingPlans()
+      const [data, sub] = await Promise.all([getSavingPlans(), getActiveSubscription()])
       setPlans(data ?? [])
+      setSubscription(sub ?? null)
       if (selectedPlanId && !(data ?? []).some((p) => p.id === selectedPlanId)) {
         setSelectedPlanId(null)
       }
@@ -149,6 +151,9 @@ export default function SavingPlansPage() {
   const totalSavings = plans.reduce((s, p) => s + p.current_amount, 0)
   const totalTarget = plans.reduce((s, p) => s + p.target_amount, 0)
   const primaryCurrency = plans[0]?.currency ?? "PHP"
+
+  const isPro = subscription !== null
+  const canAddPlan = isPro || plans.length < 1
 
   const handleCreatePlan = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -219,7 +224,6 @@ export default function SavingPlansPage() {
 
   return (
     <>
-      <TopHeader title="Saving Plans" />
       <main className="flex-1 overflow-y-auto p-4 lg:p-6">
         <div className="mx-auto max-w-screen-2xl">
           <Breadcrumb>
@@ -260,9 +264,18 @@ export default function SavingPlansPage() {
           {/* Left column - Saving Plans list */}
           <div className="lg:col-span-4">
             <div className="rounded-xl border border-border bg-card p-4 lg:p-5">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <h2 className="text-base font-semibold text-card-foreground">Saving Plans</h2>
-                <button className="text-muted-foreground hover:text-foreground"><MoreHorizontal className="h-5 w-5" /></button>
+                <div className="flex items-center gap-2">
+                  {!canAddPlan && (
+                    <span className="hidden text-xs text-muted-foreground sm:inline">
+                      Free plan: 1 saving plan max. Upgrade for more.
+                    </span>
+                  )}
+                  <button className="text-muted-foreground hover:text-foreground">
+                    <MoreHorizontal className="h-5 w-5" />
+                  </button>
+                </div>
               </div>
               <div className="mt-4 flex flex-col gap-3">
                 {loading ? (
@@ -318,13 +331,22 @@ export default function SavingPlansPage() {
                   })
                 )}
               </div>
-              <Button
-                variant="outline"
-                className="mt-4 h-11 w-full"
-                onClick={() => setAddPlanOpen(true)}
-              >
-                <Plus className="h-4 w-4" /> Add Plan
-              </Button>
+              {canAddPlan ? (
+                <Button
+                  variant="outline"
+                  className="mt-4 h-11 w-full"
+                  onClick={() => setAddPlanOpen(true)}
+                >
+                  <Plus className="h-4 w-4" /> Add Plan
+                </Button>
+              ) : (
+                <Link
+                  href="/dashboard/subscription"
+                  className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-primary bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                >
+                  <Plus className="h-4 w-4" /> Upgrade to add more plans
+                </Link>
+              )}
             </div>
           </div>
 

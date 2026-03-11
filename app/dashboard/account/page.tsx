@@ -27,10 +27,9 @@ import { TransferAccountDialog } from "@/components/account/transfer-account-dia
 import { PaymentAccountDialog } from "@/components/account/payment-account-dialog"
 import { ManageMerchantDialog } from "@/components/account/manage-merchant-dialog"
 import { getAccounts, deactivateAccount, deleteAccount } from "@/app/actions/accounts"
-import {
-  getAccountTransactions,
-  type AccountTransaction,
-} from "@/app/actions/transaction"
+import { getAccountPageData, type AccountPageData } from "@/app/actions/account-page"
+import { getActiveSubscription } from "@/app/actions/billing"
+import { type AccountTransaction } from "@/app/actions/transaction"
 import type { Database } from "@/lib/supabase/database.types"
 import { toast } from "@/hooks/use-toast"
 import Link from "next/link"
@@ -153,8 +152,12 @@ const CARD_HEIGHT_PX = 176
 const CARD_GAP_PX = 20
 
 export default function AccountPage() {
-  const [accounts, setAccounts] = useState<AccountRow[]>();
-  const [cards, setCards] = useState<CardTypes[] | undefined>();
+  const [pageData, setPageData] = useState<AccountPageData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [accounts, setAccounts] = useState<AccountRow[]>([])
+  const [subscription, setSubscription] = useState<Awaited<ReturnType<typeof getActiveSubscription>> | undefined>(undefined)
+  const [transactionsByAccountId, setTransactionsByAccountId] = useState<Record<string, AccountTransaction[]>>({})
+  const [cards, setCards] = useState<CardTypes[] | undefined>()
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [addAccountOpen, setAddAccountOpen] = useState(false)
   const [topUpOpen, setTopUpOpen] = useState(false)
@@ -166,64 +169,71 @@ export default function AccountPage() {
     useState<UpdateAccountInitialValues | null>(null)
   const [manageMerchantOpen, setManageMerchantOpen] = useState(false)
   const [transactions, setTransactions] = useState<AccountTransaction[]>([])
-  const [transactionsLoading, setTransactionsLoading] = useState(false)
   const trackRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const cardsList = cards ?? []
-  const selectedCard = cardsList[selectedIndex]
-  const totalCards = cardsList.length
-
-  const fetchAccounts = useCallback(async () => {
+  const loadPageData = useCallback(async () => {
+    setLoading(true)
     try {
-      const result = await getAccounts()
-      setAccounts(result ?? [])
+      const data = await getAccountPageData()
+      setPageData(data)
+      setAccounts(data.accounts)
+      setSubscription(data.subscription)
+      setTransactionsByAccountId(data.transactionsByAccountId)
     } catch {
-      const t = toast({
+      toast({
         title: "Failed to load accounts",
         description: "There was a problem fetching your accounts. Please try again.",
         variant: "destructive",
       })
+      setPageData(null)
       setAccounts([])
-      setTimeout(() => t.dismiss(), 5000)
+      setSubscription(null)
+      setTransactionsByAccountId({})
+    } finally {
+      setLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    fetchAccounts()
-  }, [fetchAccounts])
+    loadPageData()
+  }, [loadPageData])
 
   useEffect(() => {
-    if (accounts === undefined) return
+    if (accounts.length === 0) {
+      setCards([])
+      setSelectedIndex(0)
+      setTransactions([])
+      return
+    }
     const nextCards = transformAccountToCards(accounts)
     setCards(nextCards)
     setSelectedIndex((i) => (nextCards.length ? Math.min(i, nextCards.length - 1) : 0))
   }, [accounts])
 
-  const fetchTransactions = useCallback(async () => {
-    if (!selectedCard?.id) {
+  useEffect(() => {
+    if (accounts.length === 0 || !transactionsByAccountId) {
       setTransactions([])
       return
     }
-    setTransactionsLoading(true)
-    try {
-      const data = await getAccountTransactions(selectedCard.id)
-      setTransactions(data)
-    } catch {
+    const selectedAccount = accounts[selectedIndex]
+    if (!selectedAccount) {
       setTransactions([])
-    } finally {
-      setTransactionsLoading(false)
+      return
     }
-  }, [selectedCard?.id])
+    setTransactions(transactionsByAccountId[selectedAccount.id] ?? [])
+  }, [accounts, selectedIndex, transactionsByAccountId])
 
-  useEffect(() => {
-    fetchTransactions()
-  }, [fetchTransactions])
+  const cardsList = cards ?? []
+  const selectedCard = cardsList[selectedIndex]
+  const totalCards = cardsList.length
+  const accountCount = accounts.length
+  const isPro = subscription !== null
+  const canAddAccount = isPro || accountCount < 3
 
   const refreshAfterMutation = useCallback(() => {
-    fetchAccounts()
-    fetchTransactions()
-  }, [fetchAccounts, fetchTransactions])
+    void loadPageData()
+  }, [loadPageData])
 
   const updateTrackTransform = useCallback(() => {
     if (!containerRef.current || !trackRef.current) return
@@ -263,10 +273,9 @@ export default function AccountPage() {
 
   return (
     <>
-      <TopHeader title="Account" />
-      <main className="mx-auto max-w-screen-2xl px-4 pt-4 lg:px-8 lg:pt-6">
+      <main className="w-full px-4 pt-4 text-left lg:px-6 lg:pt-6">
         <Breadcrumb>
-          <BreadcrumbList>
+          <BreadcrumbList className="justify-start">
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
                 <Link href="/dashboard">Dashboard</Link>
@@ -282,7 +291,7 @@ export default function AccountPage() {
       <AddAccountDialog
         open={addAccountOpen}
         onOpenChange={setAddAccountOpen}
-        onCompleted={fetchAccounts}
+        onCompleted={loadPageData}
       />
       {selectedCard && (
         <TopUpAccountDialog
@@ -335,18 +344,43 @@ export default function AccountPage() {
         open={manageMerchantOpen}
         onOpenChange={setManageMerchantOpen}
       />
-      <div className="flex-1 overflow-y-auto p-4 lg:p-6">
+      {loading ? (
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 lg:p-6">
+          <div className="mx-auto max-w-screen-2xl space-y-6">
+            <div className="h-[232px] animate-pulse rounded-xl bg-muted" />
+            <div className="h-[320px] animate-pulse rounded-xl bg-muted" />
+            <div className="h-[490px] animate-pulse rounded-xl bg-muted" />
+          </div>
+        </div>
+      ) : (
+      <div className="min-h-0 flex-1 overflow-y-auto p-4 lg:p-6">
         {/* ========== CAROUSEL AT TOP ========== */}
         <div className="rounded-xl border border-border bg-card p-4 lg:p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-semibold text-card-foreground">My Cards</h2>
-            <button
-              type="button"
-              onClick={() => setAddAccountOpen(true)}
-              className="flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80"
-            >
-              <Plus className="h-4 w-4" /> Add
-            </button>
+            <div className="flex items-center gap-2">
+              {!canAddAccount && (
+                <span className="text-xs text-muted-foreground">
+                  Free plan: 3 accounts max. Upgrade for more.
+                </span>
+              )}
+              {canAddAccount ? (
+                <button
+                  type="button"
+                  onClick={() => setAddAccountOpen(true)}
+                  className="flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80"
+                >
+                  <Plus className="h-4 w-4" /> Add
+                </button>
+              ) : (
+                <Link
+                  href="/dashboard/subscription"
+                  className="flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80"
+                >
+                  <Plus className="h-4 w-4" /> Upgrade to add more
+                </Link>
+              )}
+            </div>
           </div>
 
           {/* Carousel: same behavior as carousel-sample (CSS + JS) */}
@@ -637,7 +671,7 @@ export default function AccountPage() {
                                 title: "Account deactivated",
                                 description: result.message,
                               })
-                              fetchAccounts()
+                              void loadPageData()
                             } else {
                               toast({
                                 title: "Failed to deactivate account",
@@ -655,7 +689,7 @@ export default function AccountPage() {
                                 title: "Account deleted",
                                 description: result.message,
                               })
-                              fetchAccounts()
+                              void loadPageData()
                             } else {
                               toast({
                                 title: "Failed to delete account",
@@ -753,16 +787,7 @@ export default function AccountPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {transactionsLoading ? (
-                    <tr>
-                      <td
-                        colSpan={7}
-                        className="px-4 py-12 text-center text-sm text-muted-foreground lg:px-5"
-                      >
-                        Loading transactions...
-                      </td>
-                    </tr>
-                  ) : !selectedCard ? (
+                  {!selectedCard ? (
                     <tr>
                       <td
                         colSpan={7}
@@ -846,6 +871,7 @@ export default function AccountPage() {
           </div>
         </div>
       </div>
+      )}
     </>
   )
 }

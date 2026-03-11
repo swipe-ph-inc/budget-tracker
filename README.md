@@ -1,4 +1,4 @@
-# COINEST – Financial Dashboard
+# Clairo – Financial Dashboard
 
 A full-stack financial management web app with a landing page, authentication, and a dashboard for accounts, payments, transfers, transactions, invoices, credit cards, saving plans, investments, and insights. Built with **Next.js**, **React**, **Supabase**, and **Tailwind CSS**.
 
@@ -49,7 +49,7 @@ A full-stack financial management web app with a landing page, authentication, a
 │       ├── transactions/       # invoice, cards, saving-plans, etc.
 │       └── ...
 ├── components/
-│   ├── app-sidebar.tsx         # Dashboard nav (COINEST sidebar)
+│   ├── app-sidebar.tsx         # Dashboard nav (Clairo sidebar)
 │   ├── top-header.tsx
 │   ├── dashboard/              # Balance, stats, charts, quick actions, etc.
 │   ├── landing/                # Navbar, hero, features, pricing, footer, etc.

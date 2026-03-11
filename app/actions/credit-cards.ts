@@ -731,6 +731,23 @@ export async function getInstallmentReservedByCard(): Promise<Record<string, num
   return reserved
 }
 
+/** Single-call payload for the Credit Cards page so the whole view loads at once. */
+export type CreditCardsPageData = {
+  cards: CreditCardRow[]
+  reservedByCard: Record<string, number>
+}
+
+export async function getCreditCardsPageData(): Promise<CreditCardsPageData> {
+  const [cards, reservedByCard] = await Promise.all([
+    getCreditCards(),
+    getInstallmentReservedByCard(),
+  ])
+  return {
+    cards: cards ?? [],
+    reservedByCard: reservedByCard ?? {},
+  }
+}
+
 const nowIso = () => new Date().toISOString()
 
 /**

@@ -1,6 +1,5 @@
 "use client"
 
-import { TopHeader } from "@/components/top-header"
 import { Search, SlidersHorizontal, Plus, MoreHorizontal, ChevronDown, ChevronLeft, ChevronRight, CreditCard, Shield, Heart, TrendingUp, TrendingDown, Receipt } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useState, useEffect } from "react"
@@ -90,7 +89,6 @@ export default function InvoicePage() {
 
   return (
     <>
-      <TopHeader title="Invoices" />
       <div className="flex-1 overflow-y-auto p-4 lg:p-6">
         {/* Stat Cards */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

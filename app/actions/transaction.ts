@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import type { Database } from "@/lib/supabase/database.types"
+import { getActiveSubscription } from "@/app/actions/billing"
 
 type IncomeInsert = Database["public"]["Tables"]["income"]["Insert"]
 type TransferInsert = Database["public"]["Tables"]["transfer"]["Insert"]
@@ -746,6 +747,21 @@ export async function getTransfers(filters?: GetTransfersFilters): Promise<Trans
     return []
   }
 
+  // Free plan: limit history to last 30 days. Pro: full history.
+  const subscription = await getActiveSubscription()
+  const isPro = subscription !== null
+
+  let effectiveDateFrom = filters?.dateFrom
+  if (!isPro) {
+    const now = new Date()
+    const past = new Date()
+    past.setDate(now.getDate() - 29)
+    const cutoff = past.toISOString().slice(0, 10)
+    if (!effectiveDateFrom || effectiveDateFrom < cutoff) {
+      effectiveDateFrom = cutoff
+    }
+  }
+
   let query = supabase
     .from("transfer")
     .select(`
@@ -791,8 +807,8 @@ export async function getTransfers(filters?: GetTransfersFilters): Promise<Trans
   if (filters?.fromAccountId && filters.fromAccountId !== "all") {
     query = query.eq("from_account_id", filters.fromAccountId)
   }
-  if (filters?.dateFrom) {
-    query = query.gte("created_at", filters.dateFrom)
+  if (effectiveDateFrom) {
+    query = query.gte("created_at", effectiveDateFrom)
   }
   if (filters?.dateTo) {
     const endOfDay = new Date(filters.dateTo)
@@ -884,6 +900,21 @@ export async function getPayments(
     return []
   }
 
+  // Free plan: limit history to last 30 days by default. Pro: full history.
+  const subscription = await getActiveSubscription()
+  const isPro = subscription !== null
+
+  let effectiveDateFrom = filters?.dateFrom
+  if (!isPro) {
+    const now = new Date()
+    const past = new Date()
+    past.setDate(now.getDate() - 29) // inclusive 30-day window
+    const cutoff = past.toISOString().slice(0, 10)
+    if (!effectiveDateFrom || effectiveDateFrom < cutoff) {
+      effectiveDateFrom = cutoff
+    }
+  }
+
   let query = supabase
     .from("payment")
     .select(`
@@ -922,8 +953,8 @@ export async function getPayments(
   if (filters?.merchantId && filters.merchantId !== "all") {
     query = query.eq("merchant_id", filters.merchantId)
   }
-  if (filters?.dateFrom) {
-    query = query.gte("created_at", filters.dateFrom)
+  if (effectiveDateFrom) {
+    query = query.gte("created_at", effectiveDateFrom)
   }
   if (filters?.dateTo) {
     const endOfDay = new Date(filters.dateTo)
@@ -995,6 +1026,20 @@ export async function getCardPayments(
     return []
   }
 
+  const subscription = await getActiveSubscription()
+  const isPro = subscription !== null
+
+  let effectiveDateFrom = filters?.dateFrom
+  if (!isPro) {
+    const now = new Date()
+    const past = new Date()
+    past.setDate(now.getDate() - 29)
+    const cutoff = past.toISOString().slice(0, 10)
+    if (!effectiveDateFrom || effectiveDateFrom < cutoff) {
+      effectiveDateFrom = cutoff
+    }
+  }
+
   let query = (supabase as { from: (t: string) => ReturnType<typeof supabase["from"]> })
     .from("card_payment")
     .select(
@@ -1026,8 +1071,8 @@ export async function getCardPayments(
   if (filters?.fromAccountId && filters.fromAccountId !== "all") {
     query = query.eq("from_account_id", filters.fromAccountId)
   }
-  if (filters?.dateFrom) {
-    query = query.gte("paid_at", filters.dateFrom)
+  if (effectiveDateFrom) {
+    query = query.gte("paid_at", effectiveDateFrom)
   }
   if (filters?.dateTo) {
     const endOfDay = new Date(filters.dateTo)
@@ -1114,6 +1159,20 @@ export async function getIncome(filters?: {
     return []
   }
 
+  const subscription = await getActiveSubscription()
+  const isPro = subscription !== null
+
+  let effectiveDateFrom = filters?.dateFrom
+  if (!isPro) {
+    const now = new Date()
+    const past = new Date()
+    past.setDate(now.getDate() - 29)
+    const cutoff = past.toISOString().slice(0, 10)
+    if (!effectiveDateFrom || effectiveDateFrom < cutoff) {
+      effectiveDateFrom = cutoff
+    }
+  }
+
   let query = supabase
     .from("income")
     .select(
@@ -1134,8 +1193,8 @@ export async function getIncome(filters?: {
   if (filters?.accountId && filters.accountId !== "all") {
     query = query.eq("account_id", filters.accountId)
   }
-  if (filters?.dateFrom) {
-    query = query.gte("created_at", filters.dateFrom)
+  if (effectiveDateFrom) {
+    query = query.gte("created_at", effectiveDateFrom)
   }
   if (filters?.dateTo) {
     const endOfDay = new Date(filters.dateTo)

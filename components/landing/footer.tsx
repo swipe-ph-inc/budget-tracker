@@ -1,12 +1,13 @@
 import Link from "next/link"
+import Image from "next/image"
 
 const footerLinks = {
   Product: [
     { label: "Dashboard", href: "/dashboard" },
     { label: "Payments", href: "/dashboard/payments/transfer" },
     { label: "Cards", href: "/dashboard/cards" },
-    { label: "Investment", href: "/dashboard/investment" },
-    { label: "Insights", href: "/dashboard/insights" },
+    { label: "Saving Plans", href: "/dashboard/saving-plans" },
+    { label: "Transactions", href: "/dashboard/transactions" },
   ],
   Company: [
     { label: "About Us", href: "#" },
@@ -30,15 +31,13 @@ export function Footer() {
           {/* Brand column */}
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-primary-foreground">
-                  <rect x="3" y="3" width="8" height="8" rx="1.5" fill="currentColor" />
-                  <rect x="13" y="3" width="8" height="8" rx="1.5" fill="currentColor" />
-                  <rect x="3" y="13" width="8" height="8" rx="1.5" fill="currentColor" />
-                  <rect x="13" y="13" width="8" height="8" rx="1.5" fill="currentColor" />
-                </svg>
-              </div>
-              <span className="text-lg font-bold text-foreground">COINEST</span>
+              <Image
+                src="/logo-no-lable-no-bg.png"
+                alt="Clairo"
+                className="h-8 w-auto object-contain"
+                width={120}
+                height={32}
+              />
             </Link>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
               Your smart financial management platform. Track, save, invest, and grow your wealth with confidence.
@@ -76,7 +75,7 @@ export function Footer() {
         </div>
 
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border pt-8 sm:flex-row">
-          <p className="text-xs text-muted-foreground">Copyright 2024 Peterdraw. All rights reserved.</p>
+          <p className="text-xs text-muted-foreground">Copyright 2025 Clairo. All rights reserved.</p>
           <div className="flex gap-6">
             <Link href="#" className="text-xs text-muted-foreground hover:text-foreground">Privacy Policy</Link>
             <Link href="#" className="text-xs text-muted-foreground hover:text-foreground">Terms and Conditions</Link>

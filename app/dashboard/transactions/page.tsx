@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { TopHeader } from "@/components/top-header"
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -23,6 +22,7 @@ import {
 import { getAccounts } from "@/app/actions/accounts"
 import type { Database } from "@/lib/supabase/database.types"
 import { Badge } from "@/components/ui/badge"
+import { getActiveSubscription } from "@/app/actions/billing"
 import {
   Download,
   Search,
@@ -197,6 +197,10 @@ export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<TransactionRow[]>([])
   const [accounts, setAccounts] = useState<AccountRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [subscription, setSubscription] =
+    useState<Awaited<ReturnType<typeof getActiveSubscription>> | undefined>(
+      undefined
+    )
   const [typeFilter, setTypeFilter] = useState<TransactionType | "all">("all")
   const [accountFilter, setAccountFilter] = useState<string>("all")
   const [searchQuery, setSearchQuery] = useState("")
@@ -204,11 +208,29 @@ export default function TransactionsPage() {
   const [dateTo, setDateTo] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
 
+  const isPro = subscription !== null
+
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
+      const sub = await getActiveSubscription()
+      setSubscription(sub ?? null)
+
+      const isProLocal = sub !== null
+      const maxFreeDays = 30
+      let effectiveDateFrom = dateFrom || undefined
+      if (!isProLocal) {
+        const now = new Date()
+        const past = new Date()
+        past.setDate(now.getDate() - maxFreeDays + 1)
+        const cutoff = past.toISOString().slice(0, 10)
+        if (!effectiveDateFrom || effectiveDateFrom < cutoff) {
+          effectiveDateFrom = cutoff
+        }
+      }
+
       const baseFilters = {
-        dateFrom: dateFrom || undefined,
+        dateFrom: effectiveDateFrom,
         dateTo: dateTo || undefined,
         fromAccountId: accountFilter !== "all" ? accountFilter : undefined,
       }
@@ -229,7 +251,7 @@ export default function TransactionsPage() {
           }),
           getIncome({
             accountId: accountFilter !== "all" ? accountFilter : undefined,
-            dateFrom: dateFrom || undefined,
+            dateFrom: effectiveDateFrom,
             dateTo: dateTo || undefined,
             limit: 200,
           }),
@@ -291,7 +313,6 @@ export default function TransactionsPage() {
 
   return (
     <>
-      <TopHeader title="Transactions" />
       <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6">
         <div className="mx-auto min-w-0 max-w-7xl space-y-3 sm:space-y-4">
           <Breadcrumb>
@@ -362,27 +383,41 @@ export default function TransactionsPage() {
                   />
                 </div>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <button
-                  type="button"
-                  className="flex h-9 flex-1 items-center justify-center gap-2 rounded-lg border border-input bg-background px-3 text-sm text-foreground hover:bg-muted sm:flex-initial"
-                  onClick={() => {
-                    setDateFrom("")
-                    setDateTo("")
-                    setAccountFilter("all")
-                    setTypeFilter("all")
-                    setSearchQuery("")
-                  }}
-                >
-                  Clear
-                </button>
-                <button
-                  type="button"
-                  className="flex h-9 flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 sm:flex-initial"
-                >
-                  <Download className="h-4 w-4 shrink-0" />
-                  <span className="hidden sm:inline">Download</span>
-                </button>
+              <div className="flex shrink-0 flex-col items-end gap-1">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="flex h-9 flex-1 items-center justify-center gap-2 rounded-lg border border-input bg-background px-3 text-sm text-foreground hover:bg-muted sm:flex-initial"
+                    onClick={() => {
+                      setDateFrom("")
+                      setDateTo("")
+                      setAccountFilter("all")
+                      setTypeFilter("all")
+                      setSearchQuery("")
+                    }}
+                  >
+                    Clear
+                  </button>
+                  <button
+                    type="button"
+                    className="flex h-9 flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 sm:flex-initial"
+                  >
+                    <Download className="h-4 w-4 shrink-0" />
+                    <span className="hidden sm:inline">Download</span>
+                  </button>
+                </div>
+                {!isPro && (
+                  <div className="text-right text-[11px] text-muted-foreground">
+                    Free plan shows the last 30 days of transactions.{" "}
+                    <Link
+                      href="/dashboard/subscription"
+                      className="font-medium text-primary hover:underline"
+                    >
+                      Upgrade for full history
+                    </Link>
+                    .
+                  </div>
+                )}
               </div>
             </div>
 

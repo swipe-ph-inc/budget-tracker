@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
-import { TopHeader } from "@/components/top-header"
 import { Search, SlidersHorizontal, ArrowLeftRight, CreditCard, Plus, MoreHorizontal, Copy } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -224,7 +223,6 @@ export default function TransferPage() {
 
   return (
     <>
-      <TopHeader title="Transfer" />
       <div className="flex-1 overflow-y-auto p-4 lg:p-6">
         <Breadcrumb className="mb-4">
           <BreadcrumbList>

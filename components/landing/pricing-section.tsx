@@ -10,46 +10,50 @@ const plans = [
     description: "Perfect for getting started with personal finance tracking.",
     features: [
       "Dashboard overview",
-      "Up to 3 bank accounts",
-      "Basic transaction history",
+      "Up to 3 payment accounts",
+      "30-day transaction history",
       "1 saving plan",
-      "Email support",
+      "Basic invoice management",
     ],
     cta: "Get Started",
     highlighted: false,
+    badge: null as string | null,
   },
   {
     name: "Pro",
-    price: "$9.99",
+    price: "$9",
     period: "/month",
     description: "For users who want full control of their financial life.",
     features: [
       "Everything in Free",
-      "Unlimited bank accounts",
-      "Full transaction analytics",
+      "Unlimited payment accounts",
+      "Full transaction history",
       "Unlimited saving plans",
-      "Investment tracking",
-      "AI-powered insights",
+      "Advanced invoice management",
+      "Full analytics & reports",
       "Priority support",
     ],
     cta: "Get Pro",
     highlighted: true,
+    badge: null as string | null,
   },
   {
-    name: "Business",
-    price: "$29.99",
-    period: "/month",
-    description: "For teams and businesses managing company finances.",
+    name: "Pro Annual",
+    price: "$90",
+    period: "/year",
+    description: "Same as Pro, billed annually. Just $7.50/mo — save $18 a year.",
     features: [
       "Everything in Pro",
-      "Multi-user access",
-      "Invoice management",
-      "Expense reports",
-      "API access",
-      "Dedicated account manager",
+      "Unlimited payment accounts",
+      "Full transaction history",
+      "Unlimited saving plans",
+      "Advanced invoice management",
+      "Full analytics & reports",
+      "Priority support",
     ],
-    cta: "Contact Sales",
+    cta: "Get Pro Annual",
     highlighted: false,
+    badge: "Save 17%",
   },
 ]
 
@@ -67,7 +71,7 @@ export function PricingSection() {
           </p>
         </div>
 
-        <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-3 lg:gap-8">
+        <div className="mt-14 mx-auto grid max-w-4xl grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-8">
           {plans.map((plan) => (
             <div
               key={plan.name}
@@ -77,10 +81,14 @@ export function PricingSection() {
                   : "border-border bg-card"
               }`}
             >
-              {plan.highlighted && (
+              {(plan.highlighted || plan.badge) && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="rounded-full bg-primary px-4 py-1 text-xs font-semibold text-primary-foreground">
-                    Most Popular
+                  <span className={`rounded-full px-4 py-1 text-xs font-semibold ${
+                    plan.highlighted
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
+                  }`}>
+                    {plan.highlighted ? "Most Popular" : plan.badge}
                   </span>
                 </div>
               )}

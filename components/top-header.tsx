@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { signOut } from "@/app/actions/auth"
+import { getProfile } from "@/app/actions/profile"
 import {
   getNotifications,
   getUnreadNotificationCount,
@@ -46,10 +47,44 @@ export function TopHeader({ title }: TopHeaderProps) {
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [notifOpen, setNotifOpen] = useState(false)
+  const [displayName, setDisplayName] = useState<string>("")
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [initials, setInitials] = useState<string>("?")
 
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  const loadUser = useCallback(async () => {
+    const res = await getProfile()
+    const profile = res.profile
+    const first = profile?.first_name?.trim()
+    const last = profile?.last_name?.trim()
+    if (first || last) {
+      setDisplayName([first, last].filter(Boolean).join(" "))
+      setInitials(
+        [first?.[0], last?.[0]].filter(Boolean).join("").toUpperCase().slice(0, 2) || "?"
+      )
+    } else if (res.email) {
+      setDisplayName(res.email)
+      const part = res.email.split("@")[0]
+      setInitials(
+        part.length >= 2
+          ? part.slice(0, 2).toUpperCase()
+          : part.slice(0, 1).toUpperCase()
+      )
+    } else {
+      setDisplayName("Account")
+      setInitials("?")
+    }
+    setAvatarUrl(profile?.avatar_url ?? null)
+  }, [])
+
+  useEffect(() => {
+    if (mounted) {
+      void loadUser()
+    }
+  }, [mounted, loadUser])
 
   const loadNotifications = useCallback(async () => {
     const [list, count] = await Promise.all([
@@ -187,13 +222,17 @@ export function TopHeader({ title }: TopHeaderProps) {
                 className="flex items-center gap-2 rounded-lg p-1 outline-none transition-colors hover:bg-muted focus:ring-2 focus:ring-ring lg:gap-3 lg:px-2 lg:py-1.5"
                 aria-label="Open profile menu"
               >
-                <span className="hidden text-sm font-medium text-foreground sm:block">Andrew Forbist</span>
-                <Avatar className="h-8 w-8 lg:h-9 lg:w-9">
+                <span className="hidden text-sm font-medium text-foreground sm:block truncate max-w-[140px]">
+                  {displayName || "Account"}
+                </span>
+                <Avatar className="h-8 w-8 shrink-0 lg:h-9 lg:w-9">
                   <AvatarImage
-                    src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&crop=face"
+                    src={avatarUrl ?? undefined}
                     alt="Profile"
                   />
-                  <AvatarFallback className="bg-primary text-primary-foreground text-xs">AF</AvatarFallback>
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                    {initials}
+                  </AvatarFallback>
                 </Avatar>
               </button>
             </DropdownMenuTrigger>
@@ -246,13 +285,14 @@ export function TopHeader({ title }: TopHeaderProps) {
             className="flex items-center gap-2 rounded-lg p-1 outline-none transition-colors hover:bg-muted focus:ring-2 focus:ring-ring lg:gap-3 lg:px-2 lg:py-1.5"
             aria-label="Open profile menu"
           >
-            <span className="hidden text-sm font-medium text-foreground sm:block">Andrew Forbist</span>
-            <Avatar className="h-8 w-8 lg:h-9 lg:w-9">
-              <AvatarImage
-                src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&crop=face"
-                alt="Profile"
-              />
-              <AvatarFallback className="bg-primary text-primary-foreground text-xs">AF</AvatarFallback>
+            <span className="hidden text-sm font-medium text-foreground sm:block truncate max-w-[140px]">
+              {displayName || "Account"}
+            </span>
+            <Avatar className="h-8 w-8 shrink-0 lg:h-9 lg:w-9">
+              <AvatarImage src={avatarUrl ?? undefined} alt="Profile" />
+              <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                {initials}
+              </AvatarFallback>
             </Avatar>
           </button>
         )}
