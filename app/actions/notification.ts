@@ -33,7 +33,7 @@ export async function getNotifications(limit = 10): Promise<NotificationItem[]> 
 
   if (error) return []
 
-  return (data ?? []).map((row: NotificationRow) => ({
+  return (data ?? []).map((row) => ({
     id: row.id,
     title: row.title,
     body: row.body,

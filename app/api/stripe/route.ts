@@ -37,12 +37,12 @@ async function upsertSubscription(
       stripe_price_id: priceId,
       plan_id: planRow?.id ?? null,
       status: sub.status as Stripe.Subscription.Status,
-      current_period_start: toIso(sub.current_period_start),
-      current_period_end: toIso(sub.current_period_end),
-      cancel_at_period_end: sub.cancel_at_period_end,
-      canceled_at: toIso(sub.canceled_at),
-      trial_start: toIso(sub.trial_start),
-      trial_end: toIso(sub.trial_end),
+      current_period_start: toIso((sub as any).current_period_start),
+      current_period_end: toIso((sub as any).current_period_end),
+      cancel_at_period_end: (sub as any).cancel_at_period_end,
+      canceled_at: toIso((sub as any).canceled_at),
+      trial_start: toIso((sub as any).trial_start),
+      trial_end: toIso((sub as any).trial_end),
     },
     { onConflict: "stripe_subscription_id" },
   )
@@ -66,12 +66,12 @@ async function updateSubscription(
       stripe_price_id: priceId,
       plan_id: planRow?.id ?? null,
       status: sub.status as Stripe.Subscription.Status,
-      current_period_start: toIso(sub.current_period_start),
-      current_period_end: toIso(sub.current_period_end),
-      cancel_at_period_end: sub.cancel_at_period_end,
-      canceled_at: toIso(sub.canceled_at),
-      trial_start: toIso(sub.trial_start),
-      trial_end: toIso(sub.trial_end),
+      current_period_start: toIso((sub as any).current_period_start),
+      current_period_end: toIso((sub as any).current_period_end),
+      cancel_at_period_end: (sub as any).cancel_at_period_end,
+      canceled_at: toIso((sub as any).canceled_at),
+      trial_start: toIso((sub as any).trial_start),
+      trial_end: toIso((sub as any).trial_end),
     })
     .eq("stripe_subscription_id", sub.id)
 }
@@ -148,7 +148,7 @@ export async function POST(req: NextRequest) {
         .from("subscription")
         .update({
           status: "canceled",
-          canceled_at: toIso(sub.canceled_at) ?? new Date().toISOString(),
+          canceled_at: toIso((sub as any).canceled_at) ?? new Date().toISOString(),
           cancel_at_period_end: false,
         })
         .eq("stripe_subscription_id", sub.id)

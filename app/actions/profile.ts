@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import type { Database } from "@/lib/supabase/database.types"
 
 type UserProfileRow = Database["public"]["Tables"]["user_profile"]["Row"]
-type UserProfileUpdate = Database["public"]["Tables"]["user_profile"]["Update"]
+type UserProfileUpdate = Database["public"]["Tables"]["user_profile"]["Insert"]
 
 export type ProfileData = {
   email: string | null

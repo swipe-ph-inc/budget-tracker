@@ -14,7 +14,7 @@ export function Navbar() {
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
           <img
-            src="/logo-no-lable-no-bg.png"
+            src="/clairo-logo.png"
             alt="Clairo"
             className="h-8 w-auto object-contain"
             width={120}
