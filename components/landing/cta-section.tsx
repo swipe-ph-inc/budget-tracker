@@ -14,7 +14,7 @@ export function CtaSection() {
             Start for free and take full control of your money — track spending, set saving goals, and manage payments all in one place.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
-            <Link href="/dashboard">
+            <Link href="/register">
               <Button size="lg" className="w-full bg-card text-base font-semibold text-foreground hover:bg-card/90 sm:w-auto">
                 Start For Free
                 <ArrowRight className="ml-2 h-4 w-4" />

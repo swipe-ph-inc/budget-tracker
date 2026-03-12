@@ -822,7 +822,7 @@ export function AddCreditCardDialog({
             <div className="flex flex-col items-center gap-6">
               <div
                 className={`relative w-full max-w-[360px] overflow-hidden rounded-2xl p-6 min-h-[200px] flex flex-col justify-between ${
-                  hasBg ? "" : "border border-border bg-gradient-to-br from-[hsl(220,70%,35%)] to-[hsl(220,70%,22%)]"
+                  hasBg ? "" : "border border-border bg-gradient-to-br from-primary to-[hsl(var(--primary-dark))]"
                 }`}
                 style={hasBg ? { backgroundImage: `url(${background})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
               >

@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og"
 
 export const runtime = "edge"
-export const alt = "Clairo – Smart Financial Management Made Simple"
+export const alt = "Budget Partner – Smart Financial Management Made Simple"
 export const size = { width: 1200, height: 630 }
 export const contentType = "image/png"
 
@@ -10,7 +10,7 @@ export default async function Image() {
     (
       <div
         style={{
-          background: "#0f1a13",
+          background: "#032e6d",
           width: "100%",
           height: "100%",
           display: "flex",
@@ -32,7 +32,7 @@ export default async function Image() {
             width: 600,
             height: 600,
             borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(32,131,73,0.25) 0%, transparent 70%)",
+            background: "radial-gradient(circle, rgba(40,192,149,0.25) 0%, transparent 70%)",
           }}
         />
         <div
@@ -43,7 +43,7 @@ export default async function Image() {
             width: 500,
             height: 500,
             borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(32,131,73,0.12) 0%, transparent 70%)",
+            background: "radial-gradient(circle, rgba(40,192,149,0.12) 0%, transparent 70%)",
           }}
         />
 
@@ -58,14 +58,14 @@ export default async function Image() {
                   width: 18,
                   height: 18,
                   borderRadius: 5,
-                  background: i === 0 ? "#208349" : i === 1 ? "#2ba360" : i === 2 ? "#2ba360" : "#208349",
+                  background: i === 0 ? "#032e6d" : i === 1 ? "#28c095" : i === 2 ? "#28c095" : "#032e6d",
                   opacity: i === 0 || i === 3 ? 1 : 0.6,
                 }}
               />
             ))}
           </div>
           <span style={{ fontSize: 32, fontWeight: 700, color: "#ffffff", letterSpacing: "-0.5px" }}>
-            Clairo
+            Budget Partner
           </span>
         </div>
 
@@ -83,7 +83,7 @@ export default async function Image() {
           >
             Smart Financial
             <br />
-            <span style={{ color: "#208349" }}>Management</span>
+            <span style={{ color: "#28c095" }}>Management</span>
             <br />
             Made Simple
           </h1>
@@ -110,9 +110,9 @@ export default async function Image() {
                 style={{
                   padding: "8px 18px",
                   borderRadius: 100,
-                  border: "1px solid rgba(32,131,73,0.5)",
-                  background: "rgba(32,131,73,0.1)",
-                  color: "#2ba360",
+                  border: "1px solid rgba(40,192,149,0.5)",
+                  background: "rgba(40,192,149,0.15)",
+                  color: "#28c095",
                   fontSize: 15,
                   fontWeight: 600,
                 }}
@@ -122,7 +122,7 @@ export default async function Image() {
             ))}
           </div>
           <span style={{ fontSize: 16, color: "rgba(255,255,255,0.3)", fontWeight: 500 }}>
-            clairo.app
+            budgetpartner.com
           </span>
         </div>
       </div>

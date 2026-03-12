@@ -130,7 +130,10 @@ export async function createSavingPlan(params: {
     .select("id")
     .single()
 
-  if (error) return { success: false, error: error.message }
+  if (error) {
+    console.error('[saving-plans] createSavingPlan failed', error)
+    return { success: false, error: 'Something went wrong. Please try again.' }
+  }
   return { success: true, data: { id: data.id } }
 }
 
@@ -183,7 +186,10 @@ export async function updateSavingPlan(
     .update(update)
     .eq("id", planId)
 
-  if (error) return { success: false, error: error.message }
+  if (error) {
+    console.error('[saving-plans] updateSavingPlan failed', error)
+    return { success: false, error: 'Something went wrong. Please try again.' }
+  }
   return { success: true }
 }
 
@@ -218,11 +224,17 @@ export async function deleteSavingPlan(planId: string): Promise<DeleteSavingPlan
     .delete()
     .eq("saving_plan_id", planId)
 
-  if (delContrib) return { success: false, error: delContrib.message }
+  if (delContrib) {
+    console.error('[saving-plans] deleteSavingPlan delete contributions failed', delContrib)
+    return { success: false, error: 'Something went wrong. Please try again.' }
+  }
 
   const { error: delPlan } = await supabase.from("saving_plan").delete().eq("id", planId)
 
-  if (delPlan) return { success: false, error: delPlan.message }
+  if (delPlan) {
+    console.error('[saving-plans] deleteSavingPlan delete plan failed', delPlan)
+    return { success: false, error: 'Something went wrong. Please try again.' }
+  }
   return { success: true }
 }
 
@@ -331,6 +343,9 @@ export async function addContribution(params: {
     note: params.note?.trim() || null,
   } as Database["public"]["Tables"]["saving_plan_contribution"]["Insert"])
 
-  if (error) return { success: false, error: error.message }
+  if (error) {
+    console.error('[saving-plans] addContribution failed', error)
+    return { success: false, error: 'Something went wrong. Please try again.' }
+  }
   return { success: true }
 }

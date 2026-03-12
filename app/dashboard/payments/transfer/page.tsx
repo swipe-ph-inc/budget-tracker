@@ -464,8 +464,8 @@ export default function TransferPage() {
                                   className="h-10 w-10 shrink-0 rounded-lg object-contain"
                                 />
                               ) : (
-                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[hsl(145,50%,25%)] to-[hsl(145,60%,18%)]">
-                                  <CreditCard className="h-5 w-5 text-[hsl(0,0%,100%)]" />
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-[hsl(var(--primary-dark))]">
+                                  <CreditCard className="h-5 w-5 text-primary-foreground" />
                                 </div>
                               )}
                             </div>

@@ -85,6 +85,9 @@ export async function markNotificationAsRead(id: string): Promise<MarkAsReadResu
     .eq("id", id)
     .eq("user_id", user.id)
 
-  if (error) return { success: false, error: error.message }
+  if (error) {
+    console.error('[notification] markNotificationAsRead failed', error)
+    return { success: false, error: 'Something went wrong. Please try again.' }
+  }
   return { success: true }
 }

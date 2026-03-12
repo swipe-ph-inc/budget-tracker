@@ -1,7 +1,7 @@
 const testimonials = [
   {
     quote:
-      "Clairo completely changed how I manage my finances. The dashboard gives me a clear picture of where my money goes every month.",
+      "Budget Partner completely changed how I manage my finances. The dashboard gives me a clear picture of where my money goes every month.",
     name: "Jamie Smith",
     role: "Freelance Designer",
     initials: "JS",

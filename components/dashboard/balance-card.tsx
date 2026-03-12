@@ -69,11 +69,11 @@ export function BalanceCard({
 
   return (
     <Link href="/dashboard/account" className="block">
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[hsl(145,50%,25%)] to-[hsl(145,60%,18%)] p-6 text-[hsl(0,0%,100%)] transition-opacity hover:opacity-95">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-[hsl(var(--primary-dark))] p-6 text-primary-foreground transition-opacity hover:opacity-95">
         {/* Card Pattern */}
         <div className="absolute inset-0 opacity-10">
-          <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full border border-[hsl(0,0%,100%)]" />
-          <div className="absolute -right-4 -top-4 h-32 w-32 rounded-full border border-[hsl(0,0%,100%)]" />
+          <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full border border-primary-foreground" />
+          <div className="absolute -right-4 -top-4 h-32 w-32 rounded-full border border-primary-foreground" />
         </div>
 
         <div className="relative">

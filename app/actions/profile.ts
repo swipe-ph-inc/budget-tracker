@@ -73,7 +73,8 @@ export async function updateProfile(values: {
   })
 
   if (error) {
-    return { success: false, error: error.message }
+    console.error('[profile] updateProfile failed', error)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   return { success: true }

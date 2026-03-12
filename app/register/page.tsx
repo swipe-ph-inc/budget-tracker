@@ -36,8 +36,8 @@ export default function RegisterPage() {
         <div className="relative z-10">
           <Link href="/" className="flex items-center gap-2.5">
             <img
-              src="/logo-no-lable-no-bg.png"
-              alt="Clairo"
+              src="/bp_logo.png"
+              alt="Budget Partner"
               className="h-9 w-auto object-contain"
               width={100}
               height={36}
@@ -50,7 +50,7 @@ export default function RegisterPage() {
             Start your financial journey today
           </h1>
           <p className="mt-4 max-w-md text-pretty text-base leading-relaxed text-primary-foreground/80">
-            Join thousands of users who trust Clairo to manage their finances, track investments, and achieve their savings goals.
+            Join thousands of users who trust Budget Partner to manage their finances, track investments, and achieve their savings goals.
           </p>
 
           <div className="mt-8 flex flex-col gap-4">
@@ -68,7 +68,7 @@ export default function RegisterPage() {
         </div>
 
         <p className="relative z-10 text-xs text-primary-foreground/60">
-          Copyright 2024 Peterdraw. All rights reserved.
+          &copy; {new Date().getFullYear()} Budget Partner. All rights reserved.
         </p>
 
         {/* Background decoration */}
@@ -82,8 +82,8 @@ export default function RegisterPage() {
         <div className="flex items-center justify-between p-6 lg:hidden">
           <Link href="/" className="flex items-center gap-2">
             <img
-              src="/logo-no-lable-no-bg.png"
-              alt="Clairo"
+              src="/bp_logo.png"
+              alt="Budget Partner"
               className="h-8 w-auto object-contain"
               width={120}
               height={32}
@@ -350,9 +350,9 @@ export default function RegisterPage() {
                     />
                     <label htmlFor="terms" className="text-xs leading-relaxed text-muted-foreground">
                       I agree to the{" "}
-                      <Link href="#" className="font-medium text-primary hover:underline">Terms of Service</Link>
+                      <Link href="/terms" className="font-medium text-primary hover:underline">Terms of Service</Link>
                       {" "}and{" "}
-                      <Link href="#" className="font-medium text-primary hover:underline">Privacy Policy</Link>
+                      <Link href="/privacy" className="font-medium text-primary hover:underline">Privacy Policy</Link>
                     </label>
                   </div>
 

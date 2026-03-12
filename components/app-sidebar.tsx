@@ -96,14 +96,14 @@ export function AppSidebar() {
         <div className={cn("flex items-center", isCollapsed ? "justify-center" : "gap-3")}>
           <Link href="/dashboard" className={cn("flex items-center", isCollapsed ? "justify-center" : "gap-1")}>
             <img
-              src="/logo-no-lable-no-bg.png"
-              alt="Clairo"
+              src="/bp_logo.png"
+              alt="Budget Partner"
               className={cn("h-14 w-auto object-contain", isCollapsed && "h-10")}
               width={isCollapsed ? 40 : 56}
               height={isCollapsed ? 40 : 56}
             />
             {!isCollapsed && (
-              <span className="text-xl font-bold tracking-tight text-foreground">Clairo</span>
+              <span className="text-xl font-bold tracking-tight text-foreground">Budget Partner</span>
             )}
           </Link>
         </div>

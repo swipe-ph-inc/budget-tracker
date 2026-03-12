@@ -2,6 +2,8 @@
 
 import { createClient } from "@/lib/supabase/server"
 
+const GENERIC_ERROR_MESSAGE = 'Something went wrong. Please try again.'
+
 export type MerchantOption = {
   id: string
   name: string
@@ -28,7 +30,7 @@ export async function getMerchants(): Promise<MerchantOption[]> {
     .order("name", { ascending: true })
 
   if (error) {
-    throw new Error(error.message)
+    throw new Error(GENERIC_ERROR_MESSAGE)
   }
 
   return data ?? []
@@ -57,7 +59,8 @@ export async function registerMerchantCategory(
     if (error.code === "23505") {
       return { success: false, error: "A category with this name already exists." }
     }
-    return { success: false, error: error.message }
+    console.error('[merchants] registerMerchantCategory failed', error)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   return { success: true, data: { id: data.id } }
@@ -86,7 +89,8 @@ export async function updateMerchantCategory(
     if (error.code === "23505") {
       return { success: false, error: "A category with this name already exists." }
     }
-    return { success: false, error: error.message }
+    console.error('[merchants] updateMerchantCategory failed', error)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   return { success: true }
@@ -110,7 +114,8 @@ export async function deleteMerchantCategory(
         error: "Cannot delete: merchants are using this category. Move or delete them first.",
       }
     }
-    return { success: false, error: error.message }
+    console.error('[merchants] deleteMerchantCategory failed', error)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   return { success: true }
@@ -124,7 +129,7 @@ export async function getMerchantCategories(): Promise<MerchantCategoryOption[]>
     .order("name", { ascending: true })
 
   if (error) {
-    throw new Error(error.message)
+    throw new Error(GENERIC_ERROR_MESSAGE)
   }
 
   return data ?? []
@@ -138,7 +143,7 @@ export async function getMerchantsWithCategories(): Promise<MerchantWithCategory
     .order("name", { ascending: true })
 
   if (error) {
-    throw new Error(error.message)
+    throw new Error(GENERIC_ERROR_MESSAGE)
   }
 
   return (data ?? []).map((row) => ({
@@ -174,7 +179,8 @@ export async function registerMerchant(
     .single()
 
   if (error) {
-    return { success: false, error: error.message }
+    console.error('[merchants] registerMerchant failed', error)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   return { success: true, data: { id: data.id } }
@@ -204,7 +210,8 @@ export async function updateMerchant(
     .eq("id", id)
 
   if (error) {
-    return { success: false, error: error.message }
+    console.error('[merchants] updateMerchant failed', error)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   return { success: true }
@@ -220,7 +227,8 @@ export async function deleteMerchant(id: string): Promise<DeleteMerchantResult> 
   const { error } = await supabase.from("merchant").delete().eq("id", id)
 
   if (error) {
-    return { success: false, error: error.message }
+    console.error('[merchants] deleteMerchant failed', error)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   return { success: true }

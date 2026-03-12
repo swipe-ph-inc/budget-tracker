@@ -175,13 +175,13 @@ function getMonthRange(period: "this_month" | "last_month"): { from: string; to:
 }
 
 const EXPENSE_CHART_COLORS = [
-  "hsl(145,50%,25%)",
-  "hsl(145,40%,50%)",
-  "hsl(145,30%,70%)",
-  "hsl(145,20%,80%)",
-  "hsl(120,10%,89%)",
-  "hsl(145,35%,60%)",
-  "hsl(145,25%,75%)",
+  "#032e6d",
+  "#28c095",
+  "#cea843",
+  "#a47919",
+  "#b9a264",
+  "#edd56f",
+  "#eee7ca",
 ]
 
 export type StatisticPanelCategory = {

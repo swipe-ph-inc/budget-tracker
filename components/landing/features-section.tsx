@@ -56,7 +56,7 @@ export function FeaturesSection() {
             Everything you need to manage your money
           </h2>
           <p className="mt-4 text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg">
-            From everyday payments to long-term investments, Clairo gives you the tools to make smarter financial decisions.
+            From everyday payments to long-term investments, Budget Partner gives you the tools to make smarter financial decisions.
           </p>
         </div>
 

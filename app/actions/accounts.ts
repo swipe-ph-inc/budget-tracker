@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server"
 import type { Database } from "@/lib/supabase/database.types"
 import { getActiveSubscription } from "@/app/actions/billing"
 
+const GENERIC_ERROR_MESSAGE = 'Something went wrong. Please try again.'
+
 type AccountRow = Database["public"]["Tables"]["account"]["Row"]
 type AccountInsert = Database["public"]["Tables"]["account"]["Insert"]
 
@@ -106,7 +108,8 @@ export async function createAccount(
         .single()
 
     if (error) {
-        return { success: false, error: error.message }
+        console.error('[accounts] createAccount failed', error)
+        return { success: false, error: 'Something went wrong. Please try again.' }
     }
 
     return { success: true, data: { id: data.id } }
@@ -157,7 +160,8 @@ export async function updateAccount(values: UpdateAccountValues): Promise<Create
         .single()
 
     if (error) {
-        return { success: false, error: error.message }
+        console.error('[accounts] updateAccount failed', error)
+        return { success: false, error: 'Something went wrong. Please try again.' }
     }
 
     return { success: true, data: { id: data.id } }
@@ -184,7 +188,7 @@ export async function getAccounts(): Promise<AccountRow[]> {
         .order("created_at", { ascending: false })
 
     if (error) {
-        throw new Error(error?.message);
+        throw new Error(GENERIC_ERROR_MESSAGE);
     }
 
     return data ?? []
@@ -200,7 +204,8 @@ export async function deactivateAccount(accountId: string): Promise<DeactivateAc
         .single();
 
     if (error) {
-        return { success: false, error: error.message };
+        console.error('[accounts] deactivateAccount failed', error)
+        return { success: false, error: 'Something went wrong. Please try again.' };
     }
 
     return { success: true, message: "Account successfully Deactivated!!" };
@@ -216,7 +221,8 @@ export async function deleteAccount(accountId: string): Promise<DeactivateAccoun
         .single();
 
     if (error) {
-        return { success: false, error: error.message };
+        console.error('[accounts] deleteAccount failed', error)
+        return { success: false, error: 'Something went wrong. Please try again.' };
     }
 
     return { success: true, message: "Account successfully Deactivated!!" };

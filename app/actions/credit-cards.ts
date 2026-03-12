@@ -3,6 +3,8 @@
 import { createClient } from "@/lib/supabase/server"
 import type { Database } from "@/lib/supabase/database.types"
 
+const GENERIC_ERROR_MESSAGE = 'Something went wrong. Please try again.'
+
 type CreditCardRow = Database["public"]["Tables"]["credit_card"]["Row"]
 
 export type CreateCreditCardResult =
@@ -87,7 +89,8 @@ export async function createCreditCard(params: {
     .single()
 
   if (error) {
-    return { success: false, error: error.message }
+    console.error('[credit-cards] createCreditCard failed', error)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   return { success: true, data: { id: data.id } }
@@ -112,7 +115,7 @@ export async function getCreditCards(): Promise<CreditCardRow[]> {
     .order("created_at", { ascending: false })
 
   if (error) {
-    throw new Error(error.message)
+    throw new Error(GENERIC_ERROR_MESSAGE)
   }
 
   const cards = rows ?? []
@@ -466,7 +469,8 @@ export async function updateSubscriptionSchedule(
     .eq("user_id", user.id)
 
   if (updateError) {
-    return { success: false, error: updateError.message }
+    console.error('[credit-cards] updateSubscriptionSchedule failed', updateError)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
   return { success: true }
 }
@@ -511,7 +515,8 @@ export async function toggleSubscriptionAutoPay(
     .eq("user_id", user.id)
 
   if (updateError) {
-    return { success: false, error: updateError.message }
+    console.error('[credit-cards] toggleSubscriptionAutoPay failed', updateError)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   return { success: true }
@@ -580,7 +585,8 @@ export async function updateCreditCard(
     .eq("user_id", user.id)
 
   if (updateError) {
-    return { success: false, error: updateError.message }
+    console.error('[credit-cards] updateCreditCard failed', updateError)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   return { success: true }
@@ -614,7 +620,8 @@ export async function blockCreditCard(creditCardId: string): Promise<BlockCredit
     .eq("user_id", user.id)
 
   if (error) {
-    return { success: false, error: error.message }
+    console.error('[credit-cards] blockCreditCard failed', error)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   return { success: true }
@@ -647,7 +654,8 @@ export async function unblockCreditCard(creditCardId: string): Promise<UnblockCr
     .eq("user_id", user.id)
 
   if (error) {
-    return { success: false, error: error.message }
+    console.error('[credit-cards] unblockCreditCard failed', error)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   return { success: true }
@@ -690,7 +698,8 @@ export async function setTemporarilyBlockedCreditCard(
     .eq("user_id", user.id)
 
   if (error) {
-    return { success: false, error: error.message }
+    console.error('[credit-cards] setTemporarilyBlockedCreditCard failed', error)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   return { success: true }
@@ -804,7 +813,7 @@ export async function postDueInstallmentsForCard(creditCardId: string): Promise<
       .update({ balance_owed: newBalance })
       .eq("id", creditCardId)
 
-    if (updateErr) return { ok: false, error: updateErr.message }
+    if (updateErr) return { ok: false, error: GENERIC_ERROR_MESSAGE }
   }
 
   return { ok: true }
@@ -877,7 +886,8 @@ export async function createInstallmentPlan(params: {
     .single()
 
   if (paymentError || !payment) {
-    return { success: false, error: paymentError?.message ?? "Failed to create installment plan." }
+    console.error('[credit-cards] createInstallmentPlan payment insert failed', paymentError)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   const installmentRows = Array.from({ length: params.numMonths }, (_, i) => {
@@ -897,7 +907,8 @@ export async function createInstallmentPlan(params: {
 
   if (installmentsError) {
     await supabase.from("payment").delete().eq("id", payment.id)
-    return { success: false, error: installmentsError.message }
+    console.error('[credit-cards] createInstallmentPlan installments insert failed', installmentsError)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   return { success: true }
@@ -1000,7 +1011,8 @@ export async function payNextInstallment(params: {
     .eq("id", params.fromAccountId)
 
   if (accountUpdateError) {
-    return { success: false, error: accountUpdateError.message }
+    console.error('[credit-cards] payNextInstallment account update failed', accountUpdateError)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   const { error: cardUpdateError } = await supabase
@@ -1013,7 +1025,8 @@ export async function payNextInstallment(params: {
       .from("account")
       .update({ balance: account.balance })
       .eq("id", params.fromAccountId)
-    return { success: false, error: cardUpdateError.message }
+    console.error('[credit-cards] payNextInstallment card update failed', cardUpdateError)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   const { error: installmentUpdateError } = await supabase
@@ -1030,7 +1043,8 @@ export async function payNextInstallment(params: {
       .from("credit_card")
       .update({ balance_owed: card.balance_owed })
       .eq("id", creditCardId)
-    return { success: false, error: installmentUpdateError.message }
+    console.error('[credit-cards] payNextInstallment installment update failed', installmentUpdateError)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   const { error: cardPaymentError } = await supabase.from("card_payment").insert({
@@ -1057,7 +1071,8 @@ export async function payNextInstallment(params: {
       .from("payment_installment")
       .update({ status: "pending" as const, paid_at: null })
       .eq("id", nextInstallment.id)
-    return { success: false, error: cardPaymentError.message }
+    console.error('[credit-cards] payNextInstallment card_payment insert failed', cardPaymentError)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   if (feeAmount > 0) {
@@ -1110,7 +1125,8 @@ export async function deleteInstallmentPlan(paymentId: string): Promise<DeleteIn
     .eq("payment_id", paymentId)
 
   if (installmentsError) {
-    return { success: false, error: installmentsError.message }
+    console.error('[credit-cards] deleteInstallmentPlan fetch installments failed', installmentsError)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   const postedSumByCard: Record<string, number> = {}
@@ -1129,7 +1145,8 @@ export async function deleteInstallmentPlan(paymentId: string): Promise<DeleteIn
       .in("payment_installment_id", installmentIds)
 
     if (unlinkError) {
-      return { success: false, error: unlinkError.message }
+      console.error('[credit-cards] deleteInstallmentPlan unlink card_payment failed', unlinkError)
+      return { success: false, error: 'Something went wrong. Please try again.' }
     }
   }
 
@@ -1139,7 +1156,8 @@ export async function deleteInstallmentPlan(paymentId: string): Promise<DeleteIn
     .eq("payment_id", paymentId)
 
   if (deleteInstallmentsError) {
-    return { success: false, error: deleteInstallmentsError.message }
+    console.error('[credit-cards] deleteInstallmentPlan delete installments failed', deleteInstallmentsError)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   for (const [cardId, sum] of Object.entries(postedSumByCard)) {
@@ -1158,7 +1176,8 @@ export async function deleteInstallmentPlan(paymentId: string): Promise<DeleteIn
   const { error: deletePaymentError } = await supabase.from("payment").delete().eq("id", paymentId)
 
   if (deletePaymentError) {
-    return { success: false, error: deletePaymentError.message }
+    console.error('[credit-cards] deleteInstallmentPlan delete payment failed', deletePaymentError)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   return { success: true }
@@ -1241,7 +1260,8 @@ export async function payCreditCard(params: {
     .eq("user_id", user.id)
 
   if (accountUpdateError) {
-    return { success: false, error: accountUpdateError.message }
+    console.error('[credit-cards] payCreditCard account update failed', accountUpdateError)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   const { error: cardUpdateError } = await supabase
@@ -1255,7 +1275,8 @@ export async function payCreditCard(params: {
       .from("account")
       .update({ balance: accountBalance })
       .eq("id", params.fromAccountId)
-    return { success: false, error: cardUpdateError.message }
+    console.error('[credit-cards] payCreditCard card update failed', cardUpdateError)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   const { error: insertError } = await supabase.from("card_payment").insert({
@@ -1279,7 +1300,8 @@ export async function payCreditCard(params: {
       .from("credit_card")
       .update({ balance_owed: balanceOwed })
       .eq("id", params.creditCardId)
-    return { success: false, error: insertError.message }
+    console.error('[credit-cards] payCreditCard card_payment insert failed', insertError)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   return { success: true }
@@ -1342,7 +1364,8 @@ export async function createSubscriptionSchedule(params: {
     } as never)
 
   if (error) {
-    return { success: false, error: error.message }
+    console.error('[credit-cards] createSubscriptionSchedule failed', error)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   return { success: true }

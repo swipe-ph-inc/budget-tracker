@@ -309,18 +309,18 @@ export default function SavingPlansPage() {
                         <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-secondary">
                           <div className="flex h-full">
                             <div
-                              className="h-full bg-[hsl(145,50%,25%)] transition-all"
+                              className="h-full bg-primary transition-all"
                               style={{ width: `${Math.min(percent, 60)}%` }}
                             />
                             {percent > 60 && (
                               <div
-                                className="h-full bg-[hsl(145,30%,65%)] transition-all"
+                                className="h-full bg-chart-2 transition-all"
                                 style={{ width: `${percent - 60}%` }}
                               />
                             )}
                             {percent <= 60 && percent > 0 && (
                               <div
-                                className="h-full bg-[hsl(145,30%,70%)] transition-all"
+                                className="h-full bg-chart-2/80 transition-all"
                                 style={{ width: `${Math.max(0, percent * 0.4)}%` }}
                               />
                             )}
@@ -375,8 +375,8 @@ export default function SavingPlansPage() {
                       <>
                         <div className="mt-4 h-3 w-full overflow-hidden rounded-full bg-secondary">
                           <div className="flex h-full">
-                            <div className="h-full bg-[hsl(145,50%,25%)]" style={{ width: `${Math.min(pct, 60)}%` }} />
-                            <div className="h-full bg-[hsl(145,30%,65%)]" style={{ width: `${Math.max(0, pct - 60)}%` }} />
+                            <div className="h-full bg-primary" style={{ width: `${Math.min(pct, 60)}%` }} />
+                            <div className="h-full bg-chart-2" style={{ width: `${Math.max(0, pct - 60)}%` }} />
                           </div>
                         </div>
                         <div className="mt-4 flex items-center justify-between text-sm">

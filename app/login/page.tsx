@@ -14,6 +14,7 @@ function LoginPageContent() {
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
   const router = useRouter()
@@ -25,8 +26,8 @@ function LoginPageContent() {
         <div className="relative z-10">
           <Link href="/" className="flex items-center gap-2.5">
             <img
-              src="/logo-no-lable-no-bg.png"
-              alt="Clairo"
+              src="/bp_logo.png"
+              alt="Budget Partner"
               className="h-9 w-auto object-contain"
               width={100}
               height={36}
@@ -55,7 +56,7 @@ function LoginPageContent() {
             ))}
           </div>
           <p className="text-sm text-primary-foreground/80">
-            <span className="font-semibold text-primary-foreground">50,000+</span> users trust Clairo
+            <span className="font-semibold text-primary-foreground">50,000+</span> users trust Budget Partner
           </p>
         </div>
 
@@ -71,8 +72,8 @@ function LoginPageContent() {
         <div className="flex items-center justify-between p-6 lg:hidden">
           <Link href="/" className="flex items-center gap-2">
             <img
-              src="/logo-no-lable-no-bg.png"
-              alt="Clairo"
+              src="/bp_logo.png"
+              alt="Budget Partner"
               className="h-8 w-auto object-contain"
               width={120}
               height={32}
@@ -111,6 +112,8 @@ function LoginPageContent() {
               const formData = new FormData()
               formData.set("email", email)
               formData.set("password", password)
+              formData.set("next", next)
+              formData.set("rememberMe", rememberMe ? "1" : "0")
 
               const result = await login(formData)
               setIsSubmitting(false)
@@ -147,7 +150,7 @@ function LoginPageContent() {
                   <label htmlFor="password" className="text-sm font-medium text-foreground">
                     Password
                   </label>
-                  <Link href="#" className="text-xs font-medium text-primary hover:underline">
+                  <Link href="/forgot-password" className="text-xs font-medium text-primary hover:underline">
                     Forgot password?
                   </Link>
                 </div>
@@ -177,20 +180,24 @@ function LoginPageContent() {
                 <input
                   id="remember"
                   type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
                   className="h-4 w-4 rounded border-input accent-primary"
                 />
                 <label htmlFor="remember" className="text-sm text-muted-foreground">
-                  Keep me signed in
+                  Keep me signed in for 30 days
                 </label>
               </div>
 
               {/* Submit */}
-              <Link href="/dashboard">
-                <Button className="w-full bg-primary py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
-                  Sign In
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full bg-primary py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+              >
+                {isSubmitting ? "Signing in…" : "Sign In"}
+                {!isSubmitting && <ArrowRight className="ml-2 h-4 w-4" />}
+              </Button>
             </form>
 
             {/* Divider */}
@@ -219,9 +226,9 @@ function LoginPageContent() {
 
             <p className="mt-8 text-center text-xs text-muted-foreground">
               By signing in, you agree to our{" "}
-              <Link href="#" className="font-medium text-primary hover:underline">Terms of Service</Link>
+              <Link href="/terms" className="font-medium text-primary hover:underline">Terms of Service</Link>
               {" "}and{" "}
-              <Link href="#" className="font-medium text-primary hover:underline">Privacy Policy</Link>
+              <Link href="/privacy" className="font-medium text-primary hover:underline">Privacy Policy</Link>
             </p>
           </div>
         </div>

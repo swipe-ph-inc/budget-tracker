@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server"
 import type { Database } from "@/lib/supabase/database.types"
 import { getActiveSubscription } from "@/app/actions/billing"
 
+const GENERIC_ERROR_MESSAGE = 'Something went wrong. Please try again.'
+
 type IncomeInsert = Database["public"]["Tables"]["income"]["Insert"]
 type TransferInsert = Database["public"]["Tables"]["transfer"]["Insert"]
 type PaymentInsert = Database["public"]["Tables"]["payment"]["Insert"]
@@ -69,7 +71,8 @@ export async function createTopUp(params: {
     .single()
 
   if (incomeError) {
-    return { success: false, error: incomeError.message }
+    console.error('[transaction] createTopUp income insert failed', incomeError)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   return { success: true, data: { incomeId: income.id } }
@@ -165,7 +168,8 @@ export async function createTransfer(params: {
     .eq("id", params.fromAccountId)
 
   if (updateFromError) {
-    return { success: false, error: updateFromError.message }
+    console.error('[transaction] createTransfer from-account update failed', updateFromError)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   const { error: updateToError } = await supabase
@@ -178,7 +182,8 @@ export async function createTransfer(params: {
       .from("account")
       .update({ balance: fromAccount.balance })
       .eq("id", params.fromAccountId)
-    return { success: false, error: updateToError.message }
+    console.error('[transaction] createTransfer to-account update failed', updateToError)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   const now = new Date().toISOString()
@@ -215,7 +220,8 @@ export async function createTransfer(params: {
       .from("account")
       .update({ balance: toAccount.balance })
       .eq("id", params.toAccountId)
-    return { success: false, error: transferError.message }
+    console.error('[transaction] createTransfer transfer insert failed', transferError)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   return { success: true, data: { transferId: transfer.id } }
@@ -304,7 +310,8 @@ export async function createTransferToRecipient(params: {
     .eq("id", params.fromAccountId)
 
   if (updateError) {
-    return { success: false, error: updateError.message }
+    console.error('[transaction] createTransferToRecipient account update failed', updateError)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   const now = new Date().toISOString()
@@ -337,7 +344,8 @@ export async function createTransferToRecipient(params: {
       .from("account")
       .update({ balance: account.balance })
       .eq("id", params.fromAccountId)
-    return { success: false, error: transferError.message }
+    console.error('[transaction] createTransferToRecipient transfer insert failed', transferError)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   return { success: true, data: { transferId: transfer.id } }
@@ -436,7 +444,8 @@ export async function createPayment(params: {
       .eq("id", params.fromAccountId!)
 
     if (updateError) {
-      return { success: false, error: updateError.message }
+      console.error('[transaction] createPayment account update failed', updateError)
+      return { success: false, error: 'Something went wrong. Please try again.' }
     }
 
     const paymentPayload: PaymentInsert = {
@@ -468,7 +477,8 @@ export async function createPayment(params: {
         .from("account")
         .update({ balance: account.balance })
         .eq("id", params.fromAccountId!)
-      return { success: false, error: paymentError.message }
+      console.error('[transaction] createPayment payment insert (account) failed', paymentError)
+      return { success: false, error: 'Something went wrong. Please try again.' }
     }
 
     return { success: true, data: { paymentId: payment.id } }
@@ -503,7 +513,8 @@ export async function createPayment(params: {
     .eq("id", params.fromCreditCardId!)
 
   if (updateError) {
-    return { success: false, error: updateError.message }
+    console.error('[transaction] createPayment credit card update failed', updateError)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   const paymentPayload: PaymentInsert = {
@@ -535,7 +546,8 @@ export async function createPayment(params: {
       .from("credit_card")
       .update({ balance_owed: card.balance_owed })
       .eq("id", params.fromCreditCardId!)
-    return { success: false, error: paymentError.message }
+    console.error('[transaction] createPayment payment insert (credit card) failed', paymentError)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   return { success: true, data: { paymentId: payment.id } }

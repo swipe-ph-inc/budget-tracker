@@ -3,11 +3,11 @@ import Image from "next/image"
 
 const footerLinks = {
   Product: [
-    { label: "Dashboard", href: "/dashboard" },
-    { label: "Payments", href: "/dashboard/payments/transfer" },
-    { label: "Cards", href: "/dashboard/cards" },
-    { label: "Saving Plans", href: "/dashboard/saving-plans" },
-    { label: "Transactions", href: "/dashboard/transactions" },
+    { label: "Dashboard", href: "/register" },
+    { label: "Payments", href: "/register" },
+    { label: "Cards", href: "/register" },
+    { label: "Saving Plans", href: "/register" },
+    { label: "Transactions", href: "/register" },
   ],
   Company: [
     { label: "About Us", href: "#" },
@@ -18,8 +18,8 @@ const footerLinks = {
   Support: [
     { label: "Help Center", href: "#" },
     { label: "Contact", href: "#" },
-    { label: "Privacy Policy", href: "#" },
-    { label: "Terms of Service", href: "#" },
+    { label: "Privacy Policy", href: "/privacy" },
+    { label: "Terms of Service", href: "/terms" },
   ],
 }
 
@@ -32,8 +32,8 @@ export function Footer() {
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="flex items-center gap-2">
               <Image
-                src="/logo-no-lable-no-bg.png"
-                alt="Clairo"
+                src="/bp_logo.png"
+                alt="Budget Partner"
                 className="h-8 w-auto object-contain"
                 width={120}
                 height={32}
@@ -75,10 +75,10 @@ export function Footer() {
         </div>
 
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border pt-8 sm:flex-row">
-          <p className="text-xs text-muted-foreground">Copyright 2025 Clairo. All rights reserved.</p>
+          <p className="text-xs text-muted-foreground">Copyright {new Date().getFullYear()} Budget Partner. All rights reserved.</p>
           <div className="flex gap-6">
-            <Link href="#" className="text-xs text-muted-foreground hover:text-foreground">Privacy Policy</Link>
-            <Link href="#" className="text-xs text-muted-foreground hover:text-foreground">Terms and Conditions</Link>
+            <Link href="/privacy" className="text-xs text-muted-foreground hover:text-foreground">Privacy Policy</Link>
+            <Link href="/terms" className="text-xs text-muted-foreground hover:text-foreground">Terms and Conditions</Link>
             <Link href="#" className="text-xs text-muted-foreground hover:text-foreground">Contact</Link>
           </div>
         </div>

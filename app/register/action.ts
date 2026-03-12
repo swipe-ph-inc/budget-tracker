@@ -49,7 +49,7 @@ export async function register(formData: FormData): Promise<RegisterResult> {
                 phone_number: phone,
                 display_name: displayName,
             },
-            emailRedirectTo: `${origin}/auth/callback?next=/auth/verification`,
+            emailRedirectTo: `${origin}/auth/v1/callback?next=/auth/v1/verification`,
         },
     })
 

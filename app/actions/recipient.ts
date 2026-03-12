@@ -31,7 +31,8 @@ export async function getRecipients(): Promise<GetRecipientsResult> {
     .order("display_name", { ascending: true })
 
   if (error) {
-    return { success: false, error: error.message }
+    console.error('[recipient] getRecipients failed', error)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   return { success: true, data: data ?? [] }
@@ -92,7 +93,8 @@ export async function createRecipient(
     .single()
 
   if (error) {
-    return { success: false, error: error.message }
+    console.error('[recipient] createRecipient failed', error)
+    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   return { success: true, data: { id: data.id } }

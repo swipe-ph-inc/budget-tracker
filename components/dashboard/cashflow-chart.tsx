@@ -83,11 +83,11 @@ export function CashflowChart({
         <div className="flex items-center gap-3 lg:gap-4">
           <div className="flex items-center gap-3 text-xs lg:gap-4">
             <div className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-sm bg-[hsl(145,50%,25%)]" />
+              <span className="h-2.5 w-2.5 rounded-sm bg-primary" />
               <span className="text-muted-foreground">Income</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-sm bg-[hsl(145,30%,70%)]" />
+              <span className="h-2.5 w-2.5 rounded-sm bg-chart-2" />
               <span className="text-muted-foreground">Expense</span>
             </div>
           </div>
@@ -110,17 +110,17 @@ export function CashflowChart({
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} barGap={2}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(120,10%,89%)" />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
               <XAxis
                 dataKey="month"
                 axisLine={false}
                 tickLine={false}
-                tick={{ fontSize: 12, fill: "hsl(150,5%,45%)" }}
+                tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
               />
               <YAxis
                 axisLine={false}
                 tickLine={false}
-                tick={{ fontSize: 12, fill: "hsl(150,5%,45%)" }}
+                tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
                 tickFormatter={(v) => {
                   if (v === 0) return "0"
                   return `${v / 1000}K`
@@ -128,8 +128,8 @@ export function CashflowChart({
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "hsl(0,0%,100%)",
-                  border: "1px solid hsl(120,10%,89%)",
+                  backgroundColor: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
                   borderRadius: "8px",
                   fontSize: "12px",
                 }}
@@ -139,8 +139,8 @@ export function CashflowChart({
                 ]}
                 labelFormatter={(label) => `${label} ${year}`}
               />
-              <Bar dataKey="income" fill="hsl(145,50%,25%)" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="expense" fill="hsl(145,30%,70%)" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="income" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="expense" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         )}

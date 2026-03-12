@@ -34,7 +34,7 @@ export function HowItWorksSection() {
             Get started in three simple steps
           </h2>
           <p className="mt-4 text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg">
-            Setting up Clairo takes just a few minutes. Here is how you can start managing your finances better today.
+            Setting up Budget Partner takes just a few minutes. Here is how you can start managing your finances better today.
           </p>
         </div>
 

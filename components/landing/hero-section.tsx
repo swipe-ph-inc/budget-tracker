@@ -26,7 +26,7 @@ export function HeroSection() {
               Take full control of your finances with real-time analytics, seamless payments, and intelligent insights. Track expenses, grow savings, and invest wisely -- all in one platform.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:gap-4">
-              <Link href="/dashboard">
+              <Link href="/register">
                 <Button size="lg" className="w-full bg-primary text-base font-semibold text-primary-foreground hover:bg-primary/90 sm:w-auto">
                   Get Started Free
                   <ArrowRight className="ml-2 h-4 w-4" />

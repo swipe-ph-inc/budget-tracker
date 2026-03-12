@@ -10,14 +10,14 @@ import { CtaSection } from "@/components/landing/cta-section"
 import { Footer } from "@/components/landing/footer"
 
 export const metadata: Metadata = {
-  title: "Clairo – Smart Financial Management Made Simple",
+  title: "Budget Partner – Smart Financial Management Made Simple",
   description:
     "Take full control of your finances with real-time analytics, seamless payments, and saving plans. Track expenses, manage invoices, and grow your savings — all in one platform.",
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "Clairo – Smart Financial Management Made Simple",
+    title: "Budget Partner – Smart Financial Management Made Simple",
     description:
       "Take full control of your finances with real-time analytics, seamless payments, and saving plans. Track expenses, manage invoices, and grow your savings.",
     url: "/",
@@ -32,24 +32,31 @@ const jsonLd = {
       "@type": "WebSite",
       "@id": `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/#website`,
       url: process.env.NEXT_PUBLIC_APP_URL ?? "/",
-      name: "Clairo",
+      name: "Budget Partner",
       description: "Smart Financial Management Made Simple",
       potentialAction: {
         "@type": "SearchAction",
         target: {
           "@type": "EntryPoint",
-          urlTemplate: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/dashboard`,
+          urlTemplate: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/register`,
         },
         "query-input": "required name=search_term_string",
       },
     },
     {
       "@type": "SoftwareApplication",
-      name: "Clairo",
+      name: "Budget Partner",
+      url: process.env.NEXT_PUBLIC_APP_URL ?? "/",
       applicationCategory: "FinanceApplication",
       operatingSystem: "Web",
       description:
         "A full-stack financial management platform with real-time analytics, seamless payments, saving plans, and invoice management.",
+      aggregateRating: {
+        "@type": "AggregateRating",
+        ratingValue: "4.9",
+        reviewCount: "2000",
+        bestRating: "5",
+      },
       offers: [
         {
           "@type": "Offer",
@@ -76,11 +83,11 @@ const jsonLd = {
     {
       "@type": "Organization",
       "@id": `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/#organization`,
-      name: "Clairo",
+      name: "Budget Partner",
       url: process.env.NEXT_PUBLIC_APP_URL ?? "/",
       logo: {
         "@type": "ImageObject",
-        url: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/logo-no-lable-no-bg.png`,
+        url: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/bp_logo.png`,
       },
     },
   ],

@@ -12,7 +12,7 @@ const promos = [
   },
   {
     title: "Free Premium for 3 Months",
-    description: "Refer a friend and get 3 months of Clairo Pro free. Your friend also gets 1 month free.",
+    description: "Refer a friend and get 3 months of Budget Partner Pro free. Your friend also gets 1 month free.",
     code: "REFER3FREE",
     expires: "Apr 15, 2028",
     status: "Active",
