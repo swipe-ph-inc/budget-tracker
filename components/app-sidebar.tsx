@@ -17,9 +17,11 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Crown,
   Lock,
   Menu,
   X,
+  Sparkles,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useState, useEffect } from "react"
@@ -32,6 +34,7 @@ type SidebarItem = {
   href: string
   children?: { label: string; href: string }[]
   badge?: boolean
+  pro?: boolean
 }
 
 const sidebarItems: SidebarItem[] = [
@@ -50,6 +53,7 @@ const sidebarItems: SidebarItem[] = [
   { label: "Transactions", icon: Receipt, href: "/dashboard/transactions" },
   { label: "Invoices", icon: FileText, href: "/dashboard/invoice" },
   { label: "Saving Plans", icon: PiggyBank, href: "/dashboard/saving-plans" },
+  { label: "AI Budget Assistant", icon: Sparkles, href: "/dashboard/ai-budget-assistant", pro: true },
   // { label: "Investments", icon: TrendingUp, href: "/dashboard/investment" },
   // { label: "Inbox", icon: Mail, href: "/dashboard/inbox", badge: true },
   // { label: "Promos", icon: Gift, href: "/dashboard/promos" },
@@ -140,12 +144,15 @@ export function AppSidebar() {
                     href={item.href}
                     onClick={() => setMobileOpen(false)}
                     className={cn(
-                      "flex items-center justify-center rounded-lg p-2.5 text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                      "relative flex items-center justify-center rounded-lg p-2.5 text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                       isActive && "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
                     )}
                     title={item.label}
                   >
                     <item.icon className="h-5 w-5 shrink-0" />
+                    {item.pro && (
+                      <Crown className="absolute -right-0.5 -top-0.5 h-3 w-3 text-amber-500" />
+                    )}
                   </Link>
                 </li>
               )
@@ -208,7 +215,13 @@ export function AppSidebar() {
                     )}
                   >
                     <item.icon className="h-[18px] w-[18px]" />
-                    <span>{item.label}</span>
+                    <span className="flex-1">{item.label}</span>
+                    {item.pro && (
+                      <Crown className={cn(
+                        "h-3.5 w-3.5 shrink-0",
+                        isActive ? "text-primary-foreground/80" : "text-amber-500"
+                      )} />
+                    )}
                     {item.badge && (
                       <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
                         3

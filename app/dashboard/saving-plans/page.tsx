@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
-import { Landmark, MoreHorizontal, Plus } from "lucide-react"
+import { Crown, Landmark, MoreHorizontal, Plus } from "lucide-react"
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -268,8 +268,9 @@ export default function SavingPlansPage() {
                 <h2 className="text-base font-semibold text-card-foreground">Saving Plans</h2>
                 <div className="flex items-center gap-2">
                   {!canAddPlan && (
-                    <span className="hidden text-xs text-muted-foreground sm:inline">
-                      Free plan: 1 saving plan max. Upgrade for more.
+                    <span className="hidden items-center gap-1 text-xs text-muted-foreground sm:flex">
+                      <Crown className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                      Free plan: 1 plan max.
                     </span>
                   )}
                   <button className="text-muted-foreground hover:text-foreground">
@@ -342,9 +343,9 @@ export default function SavingPlansPage() {
               ) : (
                 <Link
                   href="/dashboard/subscription"
-                  className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-primary bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                  className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-amber-500 bg-amber-500/10 text-sm font-medium text-amber-600 hover:bg-amber-500/20 dark:text-amber-400"
                 >
-                  <Plus className="h-4 w-4" /> Upgrade to add more plans
+                  <Crown className="h-4 w-4" /> Upgrade to Pro for more plans
                 </Link>
               )}
             </div>

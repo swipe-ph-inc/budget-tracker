@@ -35,6 +35,93 @@ export async function getProfile(): Promise<ProfileData> {
   }
 }
 
+export type AIProvider = "openai" | "anthropic" | "gemini"
+
+export type AISettings = {
+  ai_provider: AIProvider
+  openai_api_key: string | null
+  anthropic_api_key: string | null
+  gemini_api_key: string | null
+  ai_system_prompt: string | null
+}
+
+export async function getAISettings(): Promise<AISettings> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return { ai_provider: "openai", openai_api_key: null, anthropic_api_key: null, gemini_api_key: null, ai_system_prompt: null }
+  }
+
+  const { data } = await supabase
+    .from("user_profile")
+    .select("ai_provider, openai_api_key, anthropic_api_key, gemini_api_key, ai_system_prompt")
+    .eq("id", user.id)
+    .maybeSingle()
+
+  const row = data as {
+    ai_provider?: string | null
+    openai_api_key?: string | null
+    anthropic_api_key?: string | null
+    gemini_api_key?: string | null
+    ai_system_prompt?: string | null
+  } | null
+
+  return {
+    ai_provider: (row?.ai_provider as AIProvider | null) ?? "openai",
+    openai_api_key: row?.openai_api_key ?? null,
+    anthropic_api_key: row?.anthropic_api_key ?? null,
+    gemini_api_key: row?.gemini_api_key ?? null,
+    ai_system_prompt: row?.ai_system_prompt ?? null,
+  }
+}
+
+export type UpdateAISettingsResult =
+  | { success: true }
+  | { success: false; error: string }
+
+export async function updateAISettings(values: {
+  ai_provider?: AIProvider
+  openai_api_key?: string | null
+  anthropic_api_key?: string | null
+  gemini_api_key?: string | null
+  ai_system_prompt?: string | null
+}): Promise<UpdateAISettingsResult> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return { success: false, error: "You must be signed in to update AI settings." }
+  }
+
+  const payload: Record<string, unknown> = { id: user.id }
+  if (values.ai_provider !== undefined) payload.ai_provider = values.ai_provider
+  if (values.openai_api_key !== undefined) payload.openai_api_key = values.openai_api_key ?? null
+  if (values.anthropic_api_key !== undefined) payload.anthropic_api_key = values.anthropic_api_key ?? null
+  if (values.gemini_api_key !== undefined) payload.gemini_api_key = values.gemini_api_key ?? null
+  if (values.ai_system_prompt !== undefined) payload.ai_system_prompt = values.ai_system_prompt ?? null
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await supabase
+    .from("user_profile")
+    .upsert(payload as any, { onConflict: "id" })
+
+  if (error) {
+    console.error('[profile] updateAISettings failed', error)
+    return { success: false, error: 'Something went wrong. Please try again.' }
+  }
+
+  return { success: true }
+}
+
 export type UpdateProfileResult =
   | { success: true }
   | { success: false; error: string }

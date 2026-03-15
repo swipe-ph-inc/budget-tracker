@@ -4,6 +4,7 @@ import { TopHeader } from "@/components/top-header"
 import {
   Plus,
   ArrowUpDown,
+  Crown,
   DollarSign,
   ChevronDown,
   ChevronLeft,
@@ -360,8 +361,9 @@ export default function AccountPage() {
             <h2 className="text-base font-semibold text-card-foreground">My Cards</h2>
             <div className="flex items-center gap-2">
               {!canAddAccount && (
-                <span className="text-xs text-muted-foreground">
-                  Free plan: 3 accounts max. Upgrade for more.
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Crown className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                  Free plan: 3 accounts max.
                 </span>
               )}
               {canAddAccount ? (
@@ -375,9 +377,9 @@ export default function AccountPage() {
               ) : (
                 <Link
                   href="/dashboard/subscription"
-                  className="flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80"
+                  className="flex items-center gap-1 text-sm font-medium text-amber-500 hover:text-amber-600"
                 >
-                  <Plus className="h-4 w-4" /> Upgrade to add more
+                  <Crown className="h-4 w-4" /> Upgrade to Pro
                 </Link>
               )}
             </div>

@@ -59,6 +59,62 @@ const stripe =
     apiVersion: "2026-02-25.clover",
   })
 
+export type CreatePortalSessionResult =
+  | { success: true; url: string }
+  | { success: false; error: string }
+
+/**
+ * Create a Stripe Billing Portal session so the user can manage or cancel their subscription.
+ * Requires the Customer Portal to be configured in the Stripe Dashboard.
+ */
+export async function createPortalSession(): Promise<CreatePortalSessionResult> {
+  if (!stripe) {
+    return { success: false, error: "Stripe is not configured on the server." }
+  }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return { success: false, error: "You must be signed in." }
+  }
+
+  const { data: profileRow } = await supabase
+    .from("user_profile")
+    .select("stripe_customer_id")
+    .eq("id", user.id)
+    .maybeSingle()
+
+  const customerId = (profileRow as { stripe_customer_id?: string | null } | null)?.stripe_customer_id
+  if (!customerId) {
+    return { success: false, error: "No billing account found. Please upgrade first." }
+  }
+
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ??
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000")
+
+  try {
+    const portalSession = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: `${appUrl}/dashboard/subscription`,
+    })
+
+    return { success: true, url: portalSession.url }
+  } catch (error: unknown) {
+    console.error("[billing] createPortalSession failed", {
+      message: error instanceof Error ? error.message : String(error),
+    })
+    return {
+      success: false,
+      error: "Could not open billing portal. Please try again or contact support.",
+    }
+  }
+}
+
 export type CreateCheckoutSessionResult =
   | { success: true; url: string }
   | { success: false; error: string }

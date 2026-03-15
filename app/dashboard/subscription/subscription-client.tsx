@@ -12,9 +12,17 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { createCheckoutSession } from "@/app/actions/billing"
+import { createCheckoutSession, createPortalSession } from "@/app/actions/billing"
 import { useToast } from "@/hooks/use-toast"
 import type { ActiveSubscription } from "@/app/actions/billing"
+
+/** Map a plan slug from the DB (e.g. "pro-monthly", "pro-annual") to a UI plan id ("pro", "business"). */
+function slugToPlanId(slug: string | null): string {
+  if (!slug) return "pro"
+  if (slug.startsWith("business")) return "business"
+  if (slug.startsWith("pro")) return "pro"
+  return "pro"
+}
 
 const plans = [
   {
@@ -99,19 +107,31 @@ export function SubscriptionClient({ subscription }: { subscription: ActiveSubsc
   const [billing, setBilling] = useState<"monthly" | "yearly">("monthly")
   const [openFaq, setOpenFaq] = useState<number | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [isPortalPending, startPortalTransition] = useTransition()
   const { toast } = useToast()
 
   const isProActive =
     subscription !== null &&
     (subscription.status === "active" || subscription.status === "trialing")
 
-  const currentPlanId = isProActive ? (subscription.planSlug ?? "pro") : "free"
+  const currentPlanId = isProActive ? slugToPlanId(subscription.planSlug) : "free"
 
   const handleUpgrade = (interval: "monthly" | "yearly") => {
     startTransition(async () => {
       const result = await createCheckoutSession(interval === "monthly" ? "month" : "year")
       if (!result.success) {
         toast({ title: "Upgrade failed", description: result.error })
+        return
+      }
+      window.location.href = result.url
+    })
+  }
+
+  const handleManageBilling = () => {
+    startPortalTransition(async () => {
+      const result = await createPortalSession()
+      if (!result.success) {
+        toast({ title: "Could not open billing portal", description: result.error, variant: "destructive" })
         return
       }
       window.location.href = result.url
@@ -188,6 +208,17 @@ export function SubscriptionClient({ subscription }: { subscription: ActiveSubsc
                       ? "Canceling"
                       : "Active"}
               </span>
+              {isProActive && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleManageBilling}
+                  disabled={isPortalPending}
+                  className="text-xs"
+                >
+                  {isPortalPending ? "Opening…" : "Manage subscription"}
+                </Button>
+              )}
             </div>
           </div>
 

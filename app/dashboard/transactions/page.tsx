@@ -24,6 +24,7 @@ import type { Database } from "@/lib/supabase/database.types"
 import { Badge } from "@/components/ui/badge"
 import { getActiveSubscription } from "@/app/actions/billing"
 import {
+  Crown,
   Download,
   Search,
   ChevronDown,
@@ -328,6 +329,19 @@ export default function TransactionsPage() {
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
+
+          {!isPro && subscription !== undefined && (
+            <div className="flex items-center gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
+              <Crown className="h-4 w-4 shrink-0 text-amber-500" />
+              <span>
+                <span className="font-medium">Free plan:</span> transaction history is limited to the last 30 days.{" "}
+                <Link href="/dashboard/subscription" className="font-medium underline underline-offset-2 hover:text-amber-800 dark:hover:text-amber-300">
+                  Upgrade to Pro
+                </Link>{" "}
+                for full history.
+              </span>
+            </div>
+          )}
 
           <div className="rounded-xl border border-border bg-card">
             {/* Filters - responsive stack */}
