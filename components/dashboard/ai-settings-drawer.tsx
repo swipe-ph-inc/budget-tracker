@@ -22,12 +22,21 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { getAISettings, updateAISettings, type AIProvider } from "@/app/actions/profile"
 import { toast } from "@/hooks/use-toast"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff, ExternalLink } from "lucide-react"
 
-const AI_PROVIDERS: { value: AIProvider; label: string; model: string; envVar: string }[] = [
-  { value: "openai",    label: "OpenAI",            model: "gpt-4o-mini",               envVar: "OPENAI_API_KEY" },
-  { value: "anthropic", label: "Anthropic (Claude)", model: "claude-3-5-haiku-20251001", envVar: "ANTHROPIC_API_KEY" },
-  { value: "gemini",    label: "Google Gemini",      model: "gemini-1.5-flash",          envVar: "GEMINI_API_KEY" },
+type ProviderMeta = {
+  value: AIProvider
+  label: string
+  model: string
+  envVar: string
+  hasModelField?: boolean
+}
+
+const AI_PROVIDERS: ProviderMeta[] = [
+  { value: "openai",      label: "OpenAI",            model: "gpt-4o-mini",               envVar: "OPENAI_API_KEY" },
+  { value: "anthropic",   label: "Anthropic (Claude)", model: "claude-3-5-haiku-20251001", envVar: "ANTHROPIC_API_KEY" },
+  { value: "gemini",      label: "Google Gemini",      model: "gemini-1.5-flash",          envVar: "GEMINI_API_KEY" },
+  { value: "openrouter",  label: "OpenRouter",         model: "openai/gpt-4o-mini",        envVar: "OPENROUTER_API_KEY", hasModelField: true },
 ]
 
 interface AISettingsDrawerProps {
@@ -42,11 +51,14 @@ export function AISettingsDrawer({ open, onOpenChange }: AISettingsDrawerProps) 
   const [openaiApiKey, setOpenaiApiKey] = useState("")
   const [anthropicApiKey, setAnthropicApiKey] = useState("")
   const [geminiApiKey, setGeminiApiKey] = useState("")
+  const [openrouterApiKey, setOpenrouterApiKey] = useState("")
+  const [openrouterModel, setOpenrouterModel] = useState("")
   const [aiSystemPrompt, setAiSystemPrompt] = useState("")
   const [showKeys, setShowKeys] = useState<Record<AIProvider, boolean>>({
     openai: false,
     anthropic: false,
     gemini: false,
+    openrouter: false,
   })
 
   const loadSettings = useCallback(async () => {
@@ -57,13 +69,14 @@ export function AISettingsDrawer({ open, onOpenChange }: AISettingsDrawerProps) 
       setOpenaiApiKey(res.openai_api_key ?? "")
       setAnthropicApiKey(res.anthropic_api_key ?? "")
       setGeminiApiKey(res.gemini_api_key ?? "")
+      setOpenrouterApiKey(res.openrouter_api_key ?? "")
+      setOpenrouterModel(res.openrouter_model ?? "")
       setAiSystemPrompt(res.ai_system_prompt ?? "")
     } finally {
       setLoading(false)
     }
   }, [])
 
-  // Load when drawer opens
   useEffect(() => {
     if (open) void loadSettings()
   }, [open, loadSettings])
@@ -77,6 +90,8 @@ export function AISettingsDrawer({ open, onOpenChange }: AISettingsDrawerProps) 
         openai_api_key: openaiApiKey.trim() || null,
         anthropic_api_key: anthropicApiKey.trim() || null,
         gemini_api_key: geminiApiKey.trim() || null,
+        openrouter_api_key: openrouterApiKey.trim() || null,
+        openrouter_model: openrouterModel.trim() || null,
         ai_system_prompt: aiSystemPrompt.trim() || null,
       })
       if (result.success) {
@@ -91,6 +106,19 @@ export function AISettingsDrawer({ open, onOpenChange }: AISettingsDrawerProps) 
 
   const toggleKey = (provider: AIProvider) =>
     setShowKeys((prev) => ({ ...prev, [provider]: !prev[provider] }))
+
+  const keyValueMap: Record<AIProvider, string> = {
+    openai: openaiApiKey,
+    anthropic: anthropicApiKey,
+    gemini: geminiApiKey,
+    openrouter: openrouterApiKey,
+  }
+  const keySetterMap: Record<AIProvider, (v: string) => void> = {
+    openai: setOpenaiApiKey,
+    anthropic: setAnthropicApiKey,
+    gemini: setGeminiApiKey,
+    openrouter: setOpenrouterApiKey,
+  }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -141,26 +169,17 @@ export function AISettingsDrawer({ open, onOpenChange }: AISettingsDrawerProps) 
             </div>
 
             {AI_PROVIDERS.map((p) => {
-              const valueMap: Record<AIProvider, string> = {
-                openai: openaiApiKey,
-                anthropic: anthropicApiKey,
-                gemini: geminiApiKey,
-              }
-              const setterMap: Record<AIProvider, (v: string) => void> = {
-                openai: setOpenaiApiKey,
-                anthropic: setAnthropicApiKey,
-                gemini: setGeminiApiKey,
-              }
               const isActive = aiProvider === p.value
               return (
                 <div
                   key={p.value}
-                  className={`space-y-2 rounded-lg p-3 transition-colors ${
+                  className={`space-y-3 rounded-lg p-3 transition-colors ${
                     isActive ? "bg-accent/40 ring-1 ring-border" : ""
                   }`}
                 >
+                  {/* Header row */}
                   <div className="flex items-center gap-2">
-                    <Label htmlFor={`drawer-key-${p.value}`} className="flex-1">
+                    <Label htmlFor={`drawer-key-${p.value}`} className="flex-1 font-medium">
                       {p.label} API Key
                     </Label>
                     {isActive && (
@@ -169,13 +188,15 @@ export function AISettingsDrawer({ open, onOpenChange }: AISettingsDrawerProps) 
                       </span>
                     )}
                   </div>
+
+                  {/* API key input */}
                   <div className="relative">
                     <Input
                       id={`drawer-key-${p.value}`}
                       type={showKeys[p.value] ? "text" : "password"}
                       placeholder={`${p.envVar.toLowerCase().replace(/_/g, "-")} key…`}
-                      value={valueMap[p.value]}
-                      onChange={(e) => setterMap[p.value](e.target.value)}
+                      value={keyValueMap[p.value]}
+                      onChange={(e) => keySetterMap[p.value](e.target.value)}
                       className="pr-10 font-mono text-sm"
                       autoComplete="off"
                     />
@@ -195,6 +216,38 @@ export function AISettingsDrawer({ open, onOpenChange }: AISettingsDrawerProps) 
                   <p className="text-xs text-muted-foreground">
                     Falls back to the server's <code className="font-mono">{p.envVar}</code> env var if blank.
                   </p>
+
+                  {/* OpenRouter-specific: model ID field */}
+                  {p.hasModelField && (
+                    <div className="space-y-1.5 pt-1">
+                      <Label htmlFor="drawer-openrouter-model" className="text-sm">
+                        Model ID
+                      </Label>
+                      <Input
+                        id="drawer-openrouter-model"
+                        type="text"
+                        placeholder="openai/gpt-4o-mini"
+                        value={openrouterModel}
+                        onChange={(e) => setOpenrouterModel(e.target.value)}
+                        className="font-mono text-sm"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Any model available on OpenRouter, e.g.{" "}
+                        <code className="font-mono">anthropic/claude-3.5-haiku</code> or{" "}
+                        <code className="font-mono">meta-llama/llama-3.1-8b-instruct:free</code>.
+                        Defaults to <code className="font-mono">openai/gpt-4o-mini</code> if blank.{" "}
+                        <a
+                          href="https://openrouter.ai/models"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-0.5 text-primary underline underline-offset-2 hover:no-underline"
+                        >
+                          Browse models
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </p>
+                    </div>
+                  )}
                 </div>
               )
             })}

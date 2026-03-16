@@ -18,7 +18,10 @@ const PROVIDER_LABELS: Record<AIProvider, string> = {
   openai: "OpenAI",
   anthropic: "Anthropic (Claude)",
   gemini: "Google Gemini",
+  openrouter: "OpenRouter",
 }
+
+const OPENROUTER_DEFAULT_MODEL = "openai/gpt-4o-mini"
 
 function getMcpBaseUrl(req: Request): string {
   if (process.env.NEXT_PUBLIC_APP_URL) {
@@ -32,7 +35,11 @@ function getMcpBaseUrl(req: Request): string {
   return new URL(req.url).origin
 }
 
-function resolveModel(provider: AIProvider, apiKey: string): LanguageModel {
+function resolveModel(
+  provider: AIProvider,
+  apiKey: string,
+  openrouterModel?: string | null,
+): LanguageModel {
   switch (provider) {
     case "openai":
       return createOpenAI({ apiKey })("gpt-4o-mini")
@@ -40,6 +47,11 @@ function resolveModel(provider: AIProvider, apiKey: string): LanguageModel {
       return createAnthropic({ apiKey })("claude-3-5-haiku-20251001")
     case "gemini":
       return createGoogleGenerativeAI({ apiKey })("gemini-1.5-flash")
+    case "openrouter":
+      return createOpenAI({
+        apiKey,
+        baseURL: "https://openrouter.ai/api/v1",
+      })(openrouterModel?.trim() || OPENROUTER_DEFAULT_MODEL)
   }
 }
 
@@ -74,13 +86,14 @@ export async function POST(req: Request) {
     openai: aiSettings.openai_api_key ?? process.env.OPENAI_API_KEY,
     anthropic: aiSettings.anthropic_api_key ?? process.env.ANTHROPIC_API_KEY,
     gemini: aiSettings.gemini_api_key ?? process.env.GEMINI_API_KEY,
+    openrouter: aiSettings.openrouter_api_key ?? process.env.OPENROUTER_API_KEY,
   }
   const apiKey = keyMap[provider]
 
   if (!apiKey) {
     return new Response(
       JSON.stringify({
-        error: `No API key configured for ${PROVIDER_LABELS[provider]}. Add one in Profile → AI Settings.`,
+        error: `No API key configured for ${PROVIDER_LABELS[provider]}. Add one in AI Settings.`,
       }),
       { status: 400, headers: { "Content-Type": "application/json" } }
     )
@@ -112,7 +125,7 @@ export async function POST(req: Request) {
   }
 
   const resolvedSystem = system ?? aiSettings.ai_system_prompt ?? DEFAULT_SYSTEM
-  const model = resolveModel(provider, apiKey)
+  const model = resolveModel(provider, apiKey, aiSettings.openrouter_model)
 
   const result = streamText({
     model,

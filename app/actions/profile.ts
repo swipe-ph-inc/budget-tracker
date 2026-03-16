@@ -35,13 +35,15 @@ export async function getProfile(): Promise<ProfileData> {
   }
 }
 
-export type AIProvider = "openai" | "anthropic" | "gemini"
+export type AIProvider = "openai" | "anthropic" | "gemini" | "openrouter"
 
 export type AISettings = {
   ai_provider: AIProvider
   openai_api_key: string | null
   anthropic_api_key: string | null
   gemini_api_key: string | null
+  openrouter_api_key: string | null
+  openrouter_model: string | null
   ai_system_prompt: string | null
 }
 
@@ -54,12 +56,20 @@ export async function getAISettings(): Promise<AISettings> {
   } = await supabase.auth.getUser()
 
   if (authError || !user) {
-    return { ai_provider: "openai", openai_api_key: null, anthropic_api_key: null, gemini_api_key: null, ai_system_prompt: null }
+    return {
+      ai_provider: "openai",
+      openai_api_key: null,
+      anthropic_api_key: null,
+      gemini_api_key: null,
+      openrouter_api_key: null,
+      openrouter_model: null,
+      ai_system_prompt: null,
+    }
   }
 
   const { data } = await supabase
     .from("user_profile")
-    .select("ai_provider, openai_api_key, anthropic_api_key, gemini_api_key, ai_system_prompt")
+    .select("ai_provider, openai_api_key, anthropic_api_key, gemini_api_key, openrouter_api_key, openrouter_model, ai_system_prompt")
     .eq("id", user.id)
     .maybeSingle()
 
@@ -68,6 +78,8 @@ export async function getAISettings(): Promise<AISettings> {
     openai_api_key?: string | null
     anthropic_api_key?: string | null
     gemini_api_key?: string | null
+    openrouter_api_key?: string | null
+    openrouter_model?: string | null
     ai_system_prompt?: string | null
   } | null
 
@@ -76,6 +88,8 @@ export async function getAISettings(): Promise<AISettings> {
     openai_api_key: row?.openai_api_key ?? null,
     anthropic_api_key: row?.anthropic_api_key ?? null,
     gemini_api_key: row?.gemini_api_key ?? null,
+    openrouter_api_key: row?.openrouter_api_key ?? null,
+    openrouter_model: row?.openrouter_model ?? null,
     ai_system_prompt: row?.ai_system_prompt ?? null,
   }
 }
@@ -89,6 +103,8 @@ export async function updateAISettings(values: {
   openai_api_key?: string | null
   anthropic_api_key?: string | null
   gemini_api_key?: string | null
+  openrouter_api_key?: string | null
+  openrouter_model?: string | null
   ai_system_prompt?: string | null
 }): Promise<UpdateAISettingsResult> {
   const supabase = await createClient()
@@ -107,6 +123,8 @@ export async function updateAISettings(values: {
   if (values.openai_api_key !== undefined) payload.openai_api_key = values.openai_api_key ?? null
   if (values.anthropic_api_key !== undefined) payload.anthropic_api_key = values.anthropic_api_key ?? null
   if (values.gemini_api_key !== undefined) payload.gemini_api_key = values.gemini_api_key ?? null
+  if (values.openrouter_api_key !== undefined) payload.openrouter_api_key = values.openrouter_api_key ?? null
+  if (values.openrouter_model !== undefined) payload.openrouter_model = values.openrouter_model ?? null
   if (values.ai_system_prompt !== undefined) payload.ai_system_prompt = values.ai_system_prompt ?? null
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
