@@ -26,8 +26,8 @@ function LoginPageContent() {
         <div className="relative z-10">
           <Link href="/" className="flex items-center gap-2.5">
             <img
-              src="/bp_logo.png"
-              alt="Budget Partner"
+              src="/clairo-logo.svg"
+              alt="Clairo"
               className="h-9 w-auto object-contain"
               width={100}
               height={36}
@@ -56,7 +56,7 @@ function LoginPageContent() {
             ))}
           </div>
           <p className="text-sm text-primary-foreground/80">
-            <span className="font-semibold text-primary-foreground">50,000+</span> users trust Budget Partner
+            <span className="font-semibold text-primary-foreground">50,000+</span> users trust Clairo
           </p>
         </div>
 
@@ -72,8 +72,8 @@ function LoginPageContent() {
         <div className="flex items-center justify-between p-6 lg:hidden">
           <Link href="/" className="flex items-center gap-2">
             <img
-              src="/bp_logo.png"
-              alt="Budget Partner"
+              src="/clairo-logo.svg"
+              alt="Clairo"
               className="h-8 w-auto object-contain"
               width={120}
               height={32}

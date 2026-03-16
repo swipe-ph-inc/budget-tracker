@@ -10,14 +10,14 @@ import { CtaSection } from "@/components/landing/cta-section"
 import { Footer } from "@/components/landing/footer"
 
 export const metadata: Metadata = {
-  title: "Budget Partner – Smart Financial Management Made Simple",
+  title: "Clairo – Smart Financial Management Made Simple",
   description:
     "Take full control of your finances with real-time analytics, seamless payments, and saving plans. Track expenses, manage invoices, and grow your savings — all in one platform.",
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "Budget Partner – Smart Financial Management Made Simple",
+    title: "Clairo – Smart Financial Management Made Simple",
     description:
       "Take full control of your finances with real-time analytics, seamless payments, and saving plans. Track expenses, manage invoices, and grow your savings.",
     url: "/",
@@ -32,7 +32,7 @@ const jsonLd = {
       "@type": "WebSite",
       "@id": `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/#website`,
       url: process.env.NEXT_PUBLIC_APP_URL ?? "/",
-      name: "Budget Partner",
+      name: "Clairo",
       description: "Smart Financial Management Made Simple",
       potentialAction: {
         "@type": "SearchAction",
@@ -45,7 +45,7 @@ const jsonLd = {
     },
     {
       "@type": "SoftwareApplication",
-      name: "Budget Partner",
+      name: "Clairo",
       url: process.env.NEXT_PUBLIC_APP_URL ?? "/",
       applicationCategory: "FinanceApplication",
       operatingSystem: "Web",
@@ -83,11 +83,11 @@ const jsonLd = {
     {
       "@type": "Organization",
       "@id": `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/#organization`,
-      name: "Budget Partner",
+      name: "Clairo",
       url: process.env.NEXT_PUBLIC_APP_URL ?? "/",
       logo: {
         "@type": "ImageObject",
-        url: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/bp_logo.png`,
+        url: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/clairo-logo.svg`,
       },
     },
   ],

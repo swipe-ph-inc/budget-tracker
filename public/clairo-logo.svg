@@ -1,0 +1,20 @@
+<svg width="130" height="36" viewBox="0 0 130 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- C mark: 270° arc opening to the right -->
+  <path
+    d="M26.5 9.5 A12 12 0 1 0 26.5 26.5"
+    stroke="#03336D"
+    stroke-width="5"
+    stroke-linecap="round"
+    fill="none"
+  />
+  <!-- Wordmark -->
+  <text
+    x="38"
+    y="25"
+    font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif"
+    font-size="21"
+    font-weight="700"
+    letter-spacing="-0.4"
+    fill="#03336D"
+  >clairo</text>
+</svg>

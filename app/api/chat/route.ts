@@ -12,7 +12,7 @@ import { appendMessages } from "@/app/actions/chat-threads"
 
 export const maxDuration = 30
 
-const DEFAULT_SYSTEM = `You are a helpful AI Budget Assistant for the Budget Partner app. You help users understand their spending, set budgets, track savings, and answer questions about their finances. Use the available tools to fetch their real data (dashboard stats, accounts, saving plans, recent transactions) when answering. Be concise and friendly.`
+const DEFAULT_SYSTEM = `You are a helpful AI Budget Assistant for Clairo. You help users understand their spending, set budgets, track savings, and answer questions about their finances. Use the available tools to fetch their real data (dashboard stats, accounts, saving plans, recent transactions) when answering. Be concise and friendly.`
 
 const PROVIDER_LABELS: Record<AIProvider, string> = {
   openai: "OpenAI",

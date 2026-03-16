@@ -24,6 +24,7 @@ import {
   Sparkles,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { AppLogo } from "@/components/app-logo"
 import { useState, useEffect } from "react"
 
 const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed"
@@ -99,16 +100,13 @@ export function AppSidebar() {
       >
         <div className={cn("flex items-center", isCollapsed ? "justify-center" : "gap-3")}>
           <Link href="/dashboard" className={cn("flex items-center", isCollapsed ? "justify-center" : "gap-1")}>
-            <img
-              src="/bp_logo.png"
-              alt="Budget Partner"
-              className={cn("h-14 w-auto object-contain", isCollapsed && "h-10")}
-              width={isCollapsed ? 40 : 56}
-              height={isCollapsed ? 40 : 56}
-            />
-            {!isCollapsed && (
-              <span className="text-xl font-bold tracking-tight text-foreground">Budget Partner</span>
-            )}
+            <AppLogo collapsed={isCollapsed} />
+            {/*
+              {!isCollapsed && (
+                <span className="text-xl font-bold tracking-tight text-foreground">Budget Partner</span>
+              )}
+            */}
+
           </Link>
         </div>
         {!isCollapsed && (

@@ -1,5 +1,6 @@
 import Link from "next/link"
 import Image from "next/image"
+import { SITE_NAME, SITE_LOGO_PATH } from "@/lib/site"
 
 const footerLinks = {
   Product: [
@@ -32,11 +33,11 @@ export function Footer() {
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="flex items-center gap-2">
               <Image
-                src="/bp_logo.png"
-                alt="Budget Partner"
+                src={SITE_LOGO_PATH}
+                alt={SITE_NAME}
                 className="h-8 w-auto object-contain"
-                width={120}
-                height={32}
+                width={130}
+                height={36}
               />
             </Link>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
@@ -75,7 +76,7 @@ export function Footer() {
         </div>
 
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border pt-8 sm:flex-row">
-          <p className="text-xs text-muted-foreground">Copyright {new Date().getFullYear()} Budget Partner. All rights reserved.</p>
+          <p className="text-xs text-muted-foreground">Copyright {new Date().getFullYear()} Clairo. All rights reserved.</p>
           <div className="flex gap-6">
             <Link href="/privacy" className="text-xs text-muted-foreground hover:text-foreground">Privacy Policy</Link>
             <Link href="/terms" className="text-xs text-muted-foreground hover:text-foreground">Terms and Conditions</Link>

@@ -5,6 +5,7 @@ import Image from "next/image"
 import { useState } from "react"
 import { Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { SITE_NAME, SITE_LOGO_PATH } from "@/lib/site"
 
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -15,11 +16,11 @@ export function Navbar() {
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
           <Image
-            src="/bp_logo.png"
-            alt="Budget Partner"
+            src={SITE_LOGO_PATH}
+            alt={SITE_NAME}
             className="h-8 w-auto object-contain"
-            width={120}
-            height={32}
+            width={130}
+            height={36}
             priority
           />
         </Link>
