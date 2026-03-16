@@ -3,10 +3,12 @@ import { createAnthropic } from "@ai-sdk/anthropic"
 import { createGoogleGenerativeAI } from "@ai-sdk/google"
 import { frontendTools } from "@assistant-ui/react-ai-sdk"
 import { createMCPClient } from "@ai-sdk/mcp"
-import { streamText, convertToModelMessages, type UIMessage, type LanguageModel } from "ai"
+import { streamText, convertToModelMessages, type UIMessage, type LanguageModel, type TextUIPart } from "ai"
+// TextUIPart used in onFinish to extract user message text
 import { createClient } from "@/lib/supabase/server"
 import { getAISettings, type AIProvider } from "@/app/actions/profile"
 import { getActiveSubscription } from "@/app/actions/billing"
+import { appendMessages } from "@/app/actions/chat-threads"
 
 export const maxDuration = 30
 
@@ -88,8 +90,9 @@ export async function POST(req: Request) {
     messages: UIMessage[]
     system?: string
     tools?: Parameters<typeof frontendTools>[0]
+    threadId?: string
   }
-  const { messages, system, tools } = body
+  const { messages, system, tools, threadId } = body
 
   const mcpBaseUrl = getMcpBaseUrl(req)
   const cookieHeader = req.headers.get("cookie") ?? ""
@@ -116,7 +119,33 @@ export async function POST(req: Request) {
     system: resolvedSystem,
     messages: await convertToModelMessages(messages),
     tools: allTools,
-    onFinish: () => mcpClient.close(),
+    onFinish: async ({ text }) => {
+      mcpClient.close()
+
+      if (threadId) {
+        // Save only the latest exchange: last user message + assistant reply
+        const newMessages: { role: "user" | "assistant"; content: string }[] = []
+
+        // Last user message from the input array
+        const lastUser = [...messages].reverse().find((m) => m.role === "user")
+        if (lastUser) {
+          const userText = (lastUser.parts ?? [])
+            .filter((p): p is TextUIPart => p.type === "text")
+            .map((p) => p.text)
+            .join("")
+          if (userText.trim()) newMessages.push({ role: "user", content: userText })
+        }
+
+        // Assistant reply (text is the full streamed text)
+        if (text.trim()) newMessages.push({ role: "assistant", content: text })
+
+        if (newMessages.length > 0) {
+          await appendMessages(threadId, newMessages).catch((err) =>
+            console.error("[chat] appendMessages failed", err)
+          )
+        }
+      }
+    },
   })
 
   return result.toUIMessageStreamResponse()

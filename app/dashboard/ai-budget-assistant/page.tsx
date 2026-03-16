@@ -1,7 +1,8 @@
 import Link from "next/link"
 import { Lock, Sparkles, Zap } from "lucide-react"
-import { AIBudgetChat } from "@/components/dashboard/ai-budget-chat"
 import { getActiveSubscription } from "@/app/actions/billing"
+import { listThreads } from "@/app/actions/chat-threads"
+import { AIBudgetAssistantClient } from "@/components/dashboard/ai-budget-assistant-client"
 
 function UpgradeGate() {
   return (
@@ -63,21 +64,15 @@ function UpgradeGate() {
 }
 
 export default async function AIBudgetAssistantPage() {
-  const subscription = await getActiveSubscription()
+  const [subscription, threads] = await Promise.all([
+    getActiveSubscription(),
+    listThreads().catch(() => []),
+  ])
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-4 lg:p-6">
-      <div className="mb-2 flex shrink-0 items-center gap-2">
-        <h1 className="text-lg font-semibold text-foreground">AI Budget Assistant</h1>
-        {subscription && (
-          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">Pro</span>
-        )}
-      </div>
-
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {subscription ? (
-        <div className="min-h-0 flex-1">
-          <AIBudgetChat />
-        </div>
+        <AIBudgetAssistantClient initialThreads={threads} />
       ) : (
         <UpgradeGate />
       )}

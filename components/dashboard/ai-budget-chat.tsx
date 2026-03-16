@@ -11,6 +11,7 @@ import {
 import { useChatRuntime, AssistantChatTransport } from "@assistant-ui/react-ai-sdk"
 import { Sparkles, Send } from "lucide-react"
 import { cn } from "@/lib/utils"
+import type { UIMessage } from "ai"
 
 function MessageRenderer() {
   return (
@@ -64,7 +65,7 @@ function ThreadContent() {
             </div>
             <p className="text-sm font-medium text-foreground">AI Budget Assistant</p>
             <p className="max-w-xs text-xs text-muted-foreground">
-              Ask about budgets, spending, or savings. I’ll help you stay on track.
+              Ask about budgets, spending, or savings. I'll help you stay on track.
             </p>
           </div>
         </AuiIf>
@@ -95,9 +96,18 @@ function ThreadContent() {
   )
 }
 
-export function AIBudgetChat() {
+interface AIBudgetChatProps {
+  threadId: string | null
+  initialMessages?: UIMessage[]
+}
+
+export function AIBudgetChat({ threadId, initialMessages }: AIBudgetChatProps) {
   const runtime = useChatRuntime({
-    transport: new AssistantChatTransport({ api: "/api/chat" }),
+    transport: new AssistantChatTransport({
+      api: "/api/chat",
+      body: threadId ? { threadId } : undefined,
+    }),
+    messages: initialMessages ?? [],
   })
 
   return (
