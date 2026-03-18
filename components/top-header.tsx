@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { useTheme } from "next-themes"
 import { Search, Bell, Settings, Sparkles, Sun, Moon, LogOut } from "lucide-react"
+import { AiAssistantPanel } from "@/components/dashboard/ai-assistant-panel"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -132,6 +133,9 @@ export function TopHeader({ title }: TopHeaderProps) {
             className="h-10 w-48 rounded-lg border border-input bg-background pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring lg:w-64"
           />
         </div>
+
+        {/* AI Assistant panel trigger */}
+        <AiAssistantPanel />
 
         {mounted ? (
           <DropdownMenu open={notifOpen} onOpenChange={setNotifOpen}>

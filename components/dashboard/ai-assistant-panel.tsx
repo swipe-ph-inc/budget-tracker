@@ -1,11 +1,10 @@
 "use client"
 
-import { useState, useCallback, useTransition } from "react"
-import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
+import { useState, useCallback, useEffect, useTransition } from "react"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
+import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
-import { PanelLeft, Sparkles, Zap } from "lucide-react"
+import { Sparkles, PanelLeft, Plus, X, Zap, Loader2 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import Link from "next/link"
 import type { UIMessage } from "ai"
@@ -18,11 +17,12 @@ import {
   renameThread,
   deleteThread,
   getThreadMessages,
+  listThreads,
   type ChatThread,
   type ChatMessage,
 } from "@/app/actions/chat-threads"
+import { getAIUsage } from "@/app/actions/ai-usage"
 
-// Convert DB rows → UIMessage[] for useChatRuntime
 function toUIMessages(rows: ChatMessage[]): UIMessage[] {
   return rows.map((r) => ({
     id: r.id,
@@ -32,36 +32,48 @@ function toUIMessages(rows: ChatMessage[]): UIMessage[] {
   }))
 }
 
-interface AIBudgetAssistantClientProps {
-  initialThreads: ChatThread[]
-  initialUsage: AIUsage
-}
-
-export function AIBudgetAssistantClient({ initialThreads, initialUsage }: AIBudgetAssistantClientProps) {
-  const [threads, setThreads] = useState<ChatThread[]>(initialThreads)
+export function AiAssistantPanel() {
+  const [open, setOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [loaded, setLoaded] = useState(false)
+  const [threads, setThreads] = useState<ChatThread[]>([])
+  const [usage, setUsage] = useState<AIUsage | null>(null)
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null)
   const [activeMessages, setActiveMessages] = useState<UIMessage[]>([])
   const [messagesLoading, setMessagesLoading] = useState(false)
-  const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [resolvedThreadId, setResolvedThreadId] = useState<string | null>(null)
   const [, startTransition] = useTransition()
 
+  // Lazy-load threads + usage on first open
+  useEffect(() => {
+    if (!open || loaded) return
+    Promise.all([listThreads().catch(() => []), getAIUsage()])
+      .then(([t, u]) => {
+        setThreads(t)
+        setUsage(u)
+        setLoaded(true)
+      })
+      .catch(() => setLoaded(true))
+  }, [open, loaded])
+
   const limitReached =
-    !initialUsage.isPro &&
-    initialUsage.chatLimit !== null &&
-    initialUsage.chatMessagesUsed >= initialUsage.chatLimit
+    usage !== null &&
+    !usage.isPro &&
+    usage.chatLimit !== null &&
+    usage.chatMessagesUsed >= usage.chatLimit
 
   // ------------------------------------------------------------------
-  // Select an existing thread
+  // Thread handlers
   // ------------------------------------------------------------------
   const handleSelectThread = useCallback(async (threadId: string) => {
     if (threadId === activeThreadId) return
     setMessagesLoading(true)
-    setMobileSheetOpen(false)
-
     try {
       const msgs = await getThreadMessages(threadId)
       setActiveMessages(toUIMessages(msgs))
       setActiveThreadId(threadId)
+      setResolvedThreadId(threadId)
     } catch {
       toast({ title: "Failed to load conversation", variant: "destructive" })
     } finally {
@@ -69,32 +81,21 @@ export function AIBudgetAssistantClient({ initialThreads, initialUsage }: AIBudg
     }
   }, [activeThreadId])
 
-  // ------------------------------------------------------------------
-  // Start a new chat
-  // ------------------------------------------------------------------
   const handleNewChat = useCallback(() => {
     setActiveThreadId(null)
     setActiveMessages([])
-    setMobileSheetOpen(false)
+    setResolvedThreadId(null)
   }, [])
 
-  // ------------------------------------------------------------------
-  // Rename
-  // ------------------------------------------------------------------
   const handleRename = useCallback(async (id: string, title: string) => {
     const result = await renameThread(id, title)
     if (result.success) {
-      setThreads((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, title } : t))
-      )
+      setThreads((prev) => prev.map((t) => (t.id === id ? { ...t, title } : t)))
     } else {
       toast({ title: "Rename failed", description: result.error, variant: "destructive" })
     }
   }, [])
 
-  // ------------------------------------------------------------------
-  // Delete
-  // ------------------------------------------------------------------
   const handleDelete = useCallback(async (id: string) => {
     const result = await deleteThread(id)
     if (result.success) {
@@ -103,6 +104,7 @@ export function AIBudgetAssistantClient({ initialThreads, initialUsage }: AIBudg
         if (activeThreadId === id) {
           setActiveThreadId(null)
           setActiveMessages([])
+          setResolvedThreadId(null)
         }
       })
     } else {
@@ -110,9 +112,6 @@ export function AIBudgetAssistantClient({ initialThreads, initialUsage }: AIBudg
     }
   }, [activeThreadId])
 
-  // ------------------------------------------------------------------
-  // Create thread before first message is sent
-  // ------------------------------------------------------------------
   const handleCreateThread = useCallback(async (firstMessage: string) => {
     const title = firstMessage.trim().slice(0, 60) || "New conversation"
     const result = await createThread(title)
@@ -120,6 +119,7 @@ export function AIBudgetAssistantClient({ initialThreads, initialUsage }: AIBudg
       const newThread = result.thread
       setThreads((prev) => [newThread, ...prev])
       setActiveThreadId(newThread.id)
+      setResolvedThreadId(newThread.id)
       return newThread.id
     } else {
       toast({ title: "Could not start conversation", description: result.error, variant: "destructive" })
@@ -127,14 +127,12 @@ export function AIBudgetAssistantClient({ initialThreads, initialUsage }: AIBudg
     }
   }, [])
 
-  // ------------------------------------------------------------------
-  // Usage counter shown in sidebar for free users
-  // ------------------------------------------------------------------
-  const usageBar = !initialUsage.isPro && initialUsage.chatLimit !== null ? (
+  // Usage bar for free users
+  const usageBar = usage && !usage.isPro && usage.chatLimit !== null ? (
     <div className="shrink-0 border-t border-border px-3 py-3">
       <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1.5">
         <span>Free Plan</span>
-        <span>{initialUsage.chatMessagesUsed}/{initialUsage.chatLimit} messages</span>
+        <span>{usage.chatMessagesUsed}/{usage.chatLimit} messages</span>
       </div>
       <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
         <div
@@ -143,13 +141,14 @@ export function AIBudgetAssistantClient({ initialThreads, initialUsage }: AIBudg
             limitReached ? "bg-destructive" : "bg-primary"
           )}
           style={{
-            width: `${Math.min(100, Math.round((initialUsage.chatMessagesUsed / initialUsage.chatLimit) * 100))}%`,
+            width: `${Math.min(100, Math.round((usage.chatMessagesUsed / usage.chatLimit) * 100))}%`,
           }}
         />
       </div>
       <Link
         href="/dashboard/subscription"
         className="mt-2 flex items-center gap-1 text-[11px] text-primary hover:underline"
+        onClick={() => setOpen(false)}
       >
         <Zap className="h-3 w-3" />
         Upgrade for unlimited
@@ -157,80 +156,130 @@ export function AIBudgetAssistantClient({ initialThreads, initialUsage }: AIBudg
     </div>
   ) : null
 
-  const threadSidebarContent = (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="min-h-0 flex-1">
-        <ThreadSidebar
-          threads={threads}
-          activeThreadId={activeThreadId}
-          onSelect={handleSelectThread}
-          onNewChat={handleNewChat}
-          onRename={handleRename}
-          onDelete={handleDelete}
-        />
-      </div>
-      {usageBar}
-    </div>
-  )
-
   return (
-    <div className="flex h-full min-h-0">
-      {/* ---- Desktop thread sidebar ---- */}
-      <aside className="hidden lg:flex w-60 shrink-0 flex-col border-r border-border bg-sidebar">
-        {threadSidebarContent}
-      </aside>
+    <>
+      {/* Trigger button — rendered in the top header */}
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="relative flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:h-10 lg:w-10"
+        aria-label="Open AI Assistant"
+      >
+        <Sparkles className="h-4 w-4 lg:h-5 lg:w-5" />
+      </button>
 
-      {/* ---- Main area ---- */}
-      <div className="flex min-w-0 flex-1 flex-col">
-        {/* Header */}
-        <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
-          {/* Mobile threads toggle */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="lg:hidden h-8 w-8"
-            onClick={() => setMobileSheetOpen(true)}
-            aria-label="Open thread history"
-          >
-            <PanelLeft className="h-4 w-4" />
-          </Button>
+      {/* Floating panel */}
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent
+          side="right"
+          className="flex w-full flex-col p-0 sm:max-w-[680px] [&>button]:hidden"
+        >
+          {/* Header */}
+          <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen((v) => !v)}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              aria-label="Toggle thread history"
+            >
+              <PanelLeft className="h-4 w-4" />
+            </button>
 
-          <Sparkles className="h-4 w-4 shrink-0 text-primary" />
-          <h1 className="flex-1 text-sm font-semibold text-foreground">AI Budget Assistant</h1>
-        </div>
+            <Sparkles className="h-4 w-4 shrink-0 text-primary" />
+            <span className="flex-1 text-sm font-semibold text-foreground">AI Assistant</span>
 
-        {/* Chat area */}
-        <div className="min-h-0 flex-1">
-          {messagesLoading ? (
-            <ThreadLoadingSkeleton />
-          ) : limitReached && activeThreadId === null ? (
-            <LimitReachedBanner used={initialUsage.chatMessagesUsed} limit={initialUsage.chatLimit!} />
-          ) : (
-            <AIBudgetAssistantChatWrapper
-              key={activeThreadId ?? "new"}
-              activeThreadId={activeThreadId}
-              activeMessages={activeMessages}
-              onCreateThread={handleCreateThread}
-              limitReached={limitReached}
-            />
-          )}
-        </div>
-      </div>
+            <button
+              type="button"
+              onClick={handleNewChat}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              aria-label="New chat"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
 
-      {/* ---- Mobile sheet ---- */}
-      <Sheet open={mobileSheetOpen} onOpenChange={setMobileSheetOpen}>
-        <SheetContent side="left" className="w-72 p-0">
-          {threadSidebarContent}
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              aria-label="Close panel"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Body */}
+          <div className="flex min-h-0 flex-1 overflow-hidden">
+            {/* Thread sidebar (collapsible) */}
+            {sidebarOpen && (
+              <div className="flex w-56 shrink-0 flex-col border-r border-border">
+                <div className="min-h-0 flex-1">
+                  <ThreadSidebar
+                    threads={threads}
+                    activeThreadId={activeThreadId}
+                    onSelect={handleSelectThread}
+                    onNewChat={handleNewChat}
+                    onRename={handleRename}
+                    onDelete={handleDelete}
+                  />
+                </div>
+                {usageBar}
+              </div>
+            )}
+
+            {/* Chat area */}
+            <div className="flex min-w-0 flex-1 flex-col">
+              {!loaded ? (
+                <PanelLoadingSkeleton />
+              ) : messagesLoading ? (
+                <PanelLoadingSkeleton />
+              ) : limitReached && resolvedThreadId === null ? (
+                <LimitReachedBanner
+                  used={usage!.chatMessagesUsed}
+                  limit={usage!.chatLimit!}
+                  onClose={() => setOpen(false)}
+                />
+              ) : creating ? (
+                <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Starting conversation…
+                </div>
+              ) : resolvedThreadId === null ? (
+                <NewChatInterceptor
+                  limitReached={limitReached}
+                  onFirstMessage={async (msg) => {
+                    setCreating(true)
+                    const id = await handleCreateThread(msg)
+                    setCreating(false)
+                    return id
+                  }}
+                />
+              ) : (
+                <AIBudgetChat
+                  key={resolvedThreadId}
+                  threadId={resolvedThreadId}
+                  initialMessages={activeMessages}
+                />
+              )}
+            </div>
+          </div>
         </SheetContent>
       </Sheet>
-    </div>
+    </>
   )
 }
 
 // ---------------------------------------------------------------------------
-// Limit reached banner — shown when free user has exhausted monthly messages
+// Limit reached banner
 // ---------------------------------------------------------------------------
-function LimitReachedBanner({ used, limit }: { used: number; limit: number }) {
+function LimitReachedBanner({
+  used,
+  limit,
+  onClose,
+}: {
+  used: number
+  limit: number
+  onClose: () => void
+}) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-5 p-6 text-center">
       <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
@@ -239,79 +288,24 @@ function LimitReachedBanner({ used, limit }: { used: number; limit: number }) {
       <div className="space-y-1.5">
         <p className="text-base font-semibold text-foreground">Monthly limit reached</p>
         <p className="max-w-xs text-sm text-muted-foreground">
-          You've used {used}/{limit} messages this month. Upgrade to Pro for unlimited AI
-          conversations and receipt scans.
+          You've used {used}/{limit} messages this month. Upgrade to Pro for unlimited AI conversations.
         </p>
       </div>
-      <div className="flex flex-col items-center gap-2">
-        <Link
-          href="/dashboard/subscription"
-          className="flex items-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-        >
-          <Zap className="h-4 w-4" />
-          Upgrade to Pro
-        </Link>
-        <p className="text-xs text-muted-foreground">
-          Limit resets on the 1st of each month
-        </p>
-      </div>
+      <Link
+        href="/dashboard/subscription"
+        onClick={onClose}
+        className="flex items-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+      >
+        <Zap className="h-4 w-4" />
+        Upgrade to Pro
+      </Link>
+      <p className="text-xs text-muted-foreground">Limit resets on the 1st of each month</p>
     </div>
   )
 }
 
 // ---------------------------------------------------------------------------
-// Inner wrapper that handles the new-thread creation flow before first send.
-// ---------------------------------------------------------------------------
-interface ChatWrapperProps {
-  activeThreadId: string | null
-  activeMessages: UIMessage[]
-  onCreateThread: (firstMessage: string) => Promise<string | null>
-  limitReached: boolean
-}
-
-function AIBudgetAssistantChatWrapper({
-  activeThreadId,
-  activeMessages,
-  onCreateThread,
-  limitReached,
-}: ChatWrapperProps) {
-  const [resolvedThreadId, setResolvedThreadId] = useState<string | null>(activeThreadId)
-  const [creating, setCreating] = useState(false)
-
-  if (creating) {
-    return (
-      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-        Starting conversation…
-      </div>
-    )
-  }
-
-  if (resolvedThreadId === null) {
-    return (
-      <NewChatInterceptor
-        limitReached={limitReached}
-        onFirstMessage={async (msg) => {
-          setCreating(true)
-          const id = await onCreateThread(msg)
-          setCreating(false)
-          if (id) setResolvedThreadId(id)
-          return id
-        }}
-      />
-    )
-  }
-
-  return (
-    <AIBudgetChat
-      threadId={resolvedThreadId}
-      initialMessages={activeMessages}
-    />
-  )
-}
-
-// ---------------------------------------------------------------------------
-// NewChatInterceptor: renders the chat UI but intercepts the first send
-// to create a thread, then hands off to the real AIBudgetChat.
+// New chat interceptor
 // ---------------------------------------------------------------------------
 interface NewChatInterceptorProps {
   onFirstMessage: (msg: string) => Promise<string | null>
@@ -327,7 +321,6 @@ function NewChatInterceptor({ onFirstMessage, limitReached }: NewChatInterceptor
     if (!trimmed || pending || limitReached) return
     setPending(true)
     await onFirstMessage(trimmed)
-    // After this, the parent sets resolvedThreadId and remounts to AIBudgetChat
   }
 
   return (
@@ -365,7 +358,7 @@ function NewChatInterceptor({ onFirstMessage, limitReached }: NewChatInterceptor
                   void handleSend()
                 }
               }}
-              placeholder="Message AI Budget Assistant..."
+              placeholder="Message AI Assistant..."
               rows={1}
               disabled={pending}
               className="min-h-[44px] max-h-32 flex-1 resize-none border-0 bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none disabled:opacity-50"
@@ -398,7 +391,10 @@ function NewChatInterceptor({ onFirstMessage, limitReached }: NewChatInterceptor
   )
 }
 
-function ThreadLoadingSkeleton() {
+// ---------------------------------------------------------------------------
+// Loading skeleton
+// ---------------------------------------------------------------------------
+function PanelLoadingSkeleton() {
   return (
     <div className="flex h-full flex-col gap-4 p-4">
       <div className="flex justify-end">
@@ -411,7 +407,7 @@ function ThreadLoadingSkeleton() {
         <Skeleton className="h-10 w-40 rounded-2xl" />
       </div>
       <div className="flex justify-start">
-        <Skeleton className="h-20 w-72 rounded-2xl" />
+        <Skeleton className="h-20 w-56 rounded-2xl" />
       </div>
     </div>
   )
