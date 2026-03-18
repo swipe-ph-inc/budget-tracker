@@ -37,24 +37,6 @@ const plans = [
     highlighted: true,
     badge: null as string | null,
   },
-  {
-    name: "Pro Annual",
-    price: "$49.99",
-    period: "/year",
-    description: "Same as Pro, billed annually. Just $4.17/mo — save ~17% a year.",
-    features: [
-      "Everything in Pro",
-      "Unlimited payment accounts",
-      "Full transaction history",
-      "Unlimited saving plans",
-      "Advanced invoice management",
-      "Full analytics & reports",
-      "Priority support",
-    ],
-    cta: "Get Pro Annual",
-    highlighted: false,
-    badge: "Save 17%",
-  },
 ]
 
 export function PricingSection() {
@@ -71,7 +53,7 @@ export function PricingSection() {
           </p>
         </div>
 
-        <div className="mt-14 mx-auto grid max-w-4xl grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-8">
+        <div className="mt-14 mx-auto grid max-w-2xl grid-cols-1 gap-6 sm:grid-cols-2 lg:gap-8">
           {plans.map((plan) => (
             <div
               key={plan.name}

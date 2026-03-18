@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react"
 import Link from "next/link"
-import { Check, Zap, Crown, Building2, ArrowRight, CreditCard, Shield } from "lucide-react"
+import { Check, Zap, Crown, ArrowRight, CreditCard, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Breadcrumb,
@@ -16,10 +16,9 @@ import { createCheckoutSession, createPortalSession, cancelUserSubscription } fr
 import { useToast } from "@/hooks/use-toast"
 import type { ActiveSubscription } from "@/app/actions/billing"
 
-/** Map a plan slug from the DB (e.g. "pro-monthly", "pro-annual") to a UI plan id ("pro", "business"). */
+/** Map a plan slug from the DB (e.g. "pro-monthly", "pro-annual") to a UI plan id. */
 function slugToPlanId(slug: string | null): string {
   if (!slug) return "pro"
-  if (slug.startsWith("business")) return "business"
   if (slug.startsWith("pro")) return "pro"
   return "pro"
 }
@@ -58,24 +57,6 @@ const plans = [
       "Export reports (CSV, PDF)",
     ],
     popular: true,
-  },
-  {
-    id: "business",
-    name: "Business",
-    icon: Building2,
-    monthlyPrice: 14.99,
-    yearlyPrice: 149.99,
-    description: "For teams and businesses managing company finances together.",
-    features: [
-      "Everything in Pro",
-      "Multi-user access (up to 10)",
-      "Invoice management",
-      "Expense reports & approvals",
-      "API access",
-      "Custom categories & rules",
-      "Dedicated account manager",
-      "SSO & advanced security",
-    ],
   },
 ]
 
@@ -348,15 +329,6 @@ export function SubscriptionClient({ subscription }: { subscription: ActiveSubsc
                       >
                         Current Plan
                       </Button>
-                    ) : plan.id === "business" ? (
-                      <Button
-                        className="w-full border-border bg-background text-sm font-semibold text-foreground hover:bg-accent"
-                        variant="outline"
-                        disabled
-                      >
-                        Contact Sales
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </Button>
                     ) : (
                       <Button
                         className={`w-full text-sm font-semibold ${
@@ -391,25 +363,21 @@ export function SubscriptionClient({ subscription }: { subscription: ActiveSubsc
                     <th className="px-5 py-3 text-left font-medium text-muted-foreground">Feature</th>
                     <th className="px-5 py-3 text-center font-medium text-muted-foreground">Free</th>
                     <th className="px-5 py-3 text-center font-medium text-primary">Pro</th>
-                    <th className="px-5 py-3 text-center font-medium text-muted-foreground">Business</th>
                   </tr>
                 </thead>
                 <tbody>
                   {[
-                    { feature: "Bank accounts", free: "3", pro: "Unlimited", business: "Unlimited" },
-                    { feature: "Transaction history", free: "30 days", pro: "Full", business: "Full" },
-                    { feature: "Saving plans", free: "1", pro: "Unlimited", business: "Unlimited" },
-                    { feature: "Investment tracking", free: false, pro: true, business: true },
-                    { feature: "AI insights", free: false, pro: true, business: true },
-                    { feature: "Invoice management", free: false, pro: false, business: true },
-                    { feature: "Multi-user access", free: false, pro: false, business: "Up to 10" },
-                    { feature: "Export reports", free: false, pro: true, business: true },
-                    { feature: "API access", free: false, pro: false, business: true },
-                    { feature: "Support", free: "Email", pro: "Priority", business: "Dedicated" },
+                    { feature: "Bank accounts", free: "3", pro: "Unlimited" },
+                    { feature: "Transaction history", free: "30 days", pro: "Full" },
+                    { feature: "Saving plans", free: "1", pro: "Unlimited" },
+                    { feature: "Investment tracking", free: false, pro: true },
+                    { feature: "AI insights", free: false, pro: true },
+                    { feature: "Export reports", free: false, pro: true },
+                    { feature: "Support", free: "Email", pro: "Priority" },
                   ].map((row, i) => (
                     <tr key={row.feature} className={i % 2 === 0 ? "bg-card" : "bg-secondary/20"}>
                       <td className="px-5 py-3 font-medium text-foreground">{row.feature}</td>
-                      {(["free", "pro", "business"] as const).map((tier) => {
+                      {(["free", "pro"] as const).map((tier) => {
                         const val = row[tier]
                         return (
                           <td key={tier} className="px-5 py-3 text-center">
