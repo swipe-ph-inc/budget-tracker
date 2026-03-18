@@ -79,44 +79,6 @@ export type Database = {
           },
         ]
       }
-      ai_usage: {
-        Row: {
-          id: string
-          user_id: string
-          month_start: string
-          chat_messages_used: number
-          receipt_scans_used: number
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          month_start?: string
-          chat_messages_used?: number
-          receipt_scans_used?: number
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          month_start?: string
-          chat_messages_used?: number
-          receipt_scans_used?: number
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ai_usage_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "user_profile"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       activity: {
         Row: {
           activity_type: Database["public"]["Enums"]["activity_type_enum"]
@@ -163,70 +125,6 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "user_profile"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      chat_message: {
-        Row: {
-          id: string
-          thread_id: string
-          role: string
-          content: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          thread_id: string
-          role: string
-          content: string
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          thread_id?: string
-          role?: string
-          content?: string
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "chat_message_thread_id_fkey"
-            columns: ["thread_id"]
-            isOneToOne: false
-            referencedRelation: "chat_thread"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      chat_thread: {
-        Row: {
-          id: string
-          user_id: string
-          title: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          title: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          title?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "chat_thread_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -358,6 +256,62 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      chat_message: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          role: string
+          thread_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          role: string
+          thread_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          role?: string
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_message_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "chat_thread"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_thread: {
+        Row: {
+          created_at: string
+          id: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       credit_card: {
         Row: {
@@ -1421,9 +1375,9 @@ export type Database = {
           gemini_api_key: string | null
           id: string
           last_name: string | null
+          lemon_customer_id: string | null
           middle_name: string | null
           openai_api_key: string | null
-          lemon_customer_id: string | null
           openrouter_api_key: string | null
           openrouter_model: string | null
           phone_number: string | null
