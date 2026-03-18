@@ -1,0 +1,5 @@
+ALTER TABLE public.credit_card
+ADD COLUMN is_blocked_date TIMESTAMPTZ DEFAULT NULL,
+ADD COLUMN is_unblocked_date TIMESTAMPTZ DEFAULT NULL,
+ADD COLUMN temporary_blocked_date TIMESTAMPTZ DEFAULT NULL,
+ADD COLUMN temporary_unblocked_date TIMESTAMPTZ DEFAULT NULL;
