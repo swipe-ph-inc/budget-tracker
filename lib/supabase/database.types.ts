@@ -1110,6 +1110,11 @@ export type Database = {
           current_period_end: string | null
           current_period_start: string | null
           id: string
+          lemon_customer_id: string | null
+          lemon_order_id: string | null
+          lemon_product_id: string | null
+          lemon_subscription_id: string | null
+          lemon_variant_id: string | null
           plan_id: string | null
           status: Database["public"]["Enums"]["subscription_status_enum"]
           stripe_customer_id: string | null
@@ -1127,6 +1132,11 @@ export type Database = {
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string
+          lemon_customer_id?: string | null
+          lemon_order_id?: string | null
+          lemon_product_id?: string | null
+          lemon_subscription_id?: string | null
+          lemon_variant_id?: string | null
           plan_id?: string | null
           status?: Database["public"]["Enums"]["subscription_status_enum"]
           stripe_customer_id?: string | null
@@ -1144,6 +1154,11 @@ export type Database = {
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string
+          lemon_customer_id?: string | null
+          lemon_order_id?: string | null
+          lemon_product_id?: string | null
+          lemon_subscription_id?: string | null
+          lemon_variant_id?: string | null
           plan_id?: string | null
           status?: Database["public"]["Enums"]["subscription_status_enum"]
           stripe_customer_id?: string | null
@@ -1180,6 +1195,7 @@ export type Database = {
           id: string
           interval: Database["public"]["Enums"]["subscription_interval_enum"]
           is_active: boolean
+          lemon_variant_id: string | null
           name: string
           slug: string
           stripe_price_id: string
@@ -1194,6 +1210,7 @@ export type Database = {
           id?: string
           interval: Database["public"]["Enums"]["subscription_interval_enum"]
           is_active?: boolean
+          lemon_variant_id?: string | null
           name: string
           slug: string
           stripe_price_id: string
@@ -1208,6 +1225,7 @@ export type Database = {
           id?: string
           interval?: Database["public"]["Enums"]["subscription_interval_enum"]
           is_active?: boolean
+          lemon_variant_id?: string | null
           name?: string
           slug?: string
           stripe_price_id?: string
@@ -1367,6 +1385,7 @@ export type Database = {
           last_name: string | null
           middle_name: string | null
           openai_api_key: string | null
+          lemon_customer_id: string | null
           openrouter_api_key: string | null
           openrouter_model: string | null
           phone_number: string | null
@@ -1384,6 +1403,7 @@ export type Database = {
           gemini_api_key?: string | null
           id: string
           last_name?: string | null
+          lemon_customer_id?: string | null
           middle_name?: string | null
           openai_api_key?: string | null
           openrouter_api_key?: string | null
@@ -1403,6 +1423,7 @@ export type Database = {
           gemini_api_key?: string | null
           id?: string
           last_name?: string | null
+          lemon_customer_id?: string | null
           middle_name?: string | null
           openai_api_key?: string | null
           openrouter_api_key?: string | null

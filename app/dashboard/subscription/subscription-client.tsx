@@ -12,7 +12,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { createCheckoutSession, createPortalSession } from "@/app/actions/billing"
+import { createCheckoutSession, createPortalSession, cancelUserSubscription } from "@/app/actions/billing"
 import { useToast } from "@/hooks/use-toast"
 import type { ActiveSubscription } from "@/app/actions/billing"
 
@@ -108,6 +108,7 @@ export function SubscriptionClient({ subscription }: { subscription: ActiveSubsc
   const [openFaq, setOpenFaq] = useState<number | null>(null)
   const [isPending, startTransition] = useTransition()
   const [isPortalPending, startPortalTransition] = useTransition()
+  const [isCancelPending, startCancelTransition] = useTransition()
   const { toast } = useToast()
 
   const isProActive =
@@ -128,13 +129,31 @@ export function SubscriptionClient({ subscription }: { subscription: ActiveSubsc
   }
 
   const handleManageBilling = () => {
+    // If we already have the portal URL from the subscription object, use it directly
+    if (subscription?.customerPortalUrl) {
+      window.open(subscription.customerPortalUrl, "_blank")
+      return
+    }
     startPortalTransition(async () => {
       const result = await createPortalSession()
       if (!result.success) {
         toast({ title: "Could not open billing portal", description: result.error, variant: "destructive" })
         return
       }
-      window.location.href = result.url
+      window.open(result.url, "_blank")
+    })
+  }
+
+  const handleCancelSubscription = () => {
+    if (!confirm("Are you sure you want to cancel your subscription? You'll keep access until the end of your billing period.")) return
+    startCancelTransition(async () => {
+      const result = await cancelUserSubscription()
+      if (!result.success) {
+        toast({ title: "Could not cancel subscription", description: result.error, variant: "destructive" })
+        return
+      }
+      toast({ title: "Subscription cancelled", description: "Your subscription will end at the current billing period." })
+      window.location.reload()
     })
   }
 
@@ -209,15 +228,28 @@ export function SubscriptionClient({ subscription }: { subscription: ActiveSubsc
                       : "Active"}
               </span>
               {isProActive && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleManageBilling}
-                  disabled={isPortalPending}
-                  className="text-xs"
-                >
-                  {isPortalPending ? "Opening…" : "Manage subscription"}
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleManageBilling}
+                    disabled={isPortalPending}
+                    className="text-xs"
+                  >
+                    {isPortalPending ? "Opening…" : "Manage billing"}
+                  </Button>
+                  {!subscription?.cancelAtPeriodEnd && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleCancelSubscription}
+                      disabled={isCancelPending}
+                      className="text-xs text-destructive hover:text-destructive"
+                    >
+                      {isCancelPending ? "Cancelling…" : "Cancel"}
+                    </Button>
+                  )}
+                </>
               )}
             </div>
           </div>

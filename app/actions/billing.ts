@@ -1,6 +1,11 @@
 "use server"
 
-import Stripe from "stripe"
+import {
+  lemonSqueezySetup,
+  createCheckout,
+  getSubscription,
+  cancelSubscription,
+} from "@lemonsqueezy/lemonsqueezy.js"
 import { createClient } from "@/lib/supabase/server"
 import type { Database } from "@/lib/supabase/database.types"
 
@@ -11,7 +16,24 @@ export type ActiveSubscription = {
   interval: string | null
   currentPeriodEnd: string | null
   cancelAtPeriodEnd: boolean
+  lemonSubscriptionId: string | null
+  customerPortalUrl: string | null
 } | null
+
+function setupLemon() {
+  const apiKey = process.env.LEMONSQUEEZY_API_KEY
+  if (!apiKey) throw new Error("LEMONSQUEEZY_API_KEY is not set")
+  lemonSqueezySetup({ apiKey })
+}
+
+function getAppUrl(): string {
+  return (
+    process.env.NEXT_PUBLIC_APP_URL ??
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000")
+  )
+}
+
+// ─── Read active subscription ────────────────────────────────────────────────
 
 export async function getActiveSubscription(): Promise<ActiveSubscription> {
   const supabase = await createClient()
@@ -22,7 +44,9 @@ export async function getActiveSubscription(): Promise<ActiveSubscription> {
 
   const { data } = await supabase
     .from("subscription")
-    .select("status, cancel_at_period_end, current_period_end, subscription_plan(name, slug, interval)")
+    .select(
+      "status, cancel_at_period_end, current_period_end, lemon_subscription_id, subscription_plan(name, slug, interval)",
+    )
     .eq("user_id", user.id)
     .in("status", ["active", "trialing", "past_due"])
     .order("created_at", { ascending: false })
@@ -33,6 +57,18 @@ export async function getActiveSubscription(): Promise<ActiveSubscription> {
 
   const plan = data.subscription_plan as { name: string; slug: string; interval: string } | null
 
+  // Try to get the customer portal URL from LemonSqueezy
+  let customerPortalUrl: string | null = null
+  if (data.lemon_subscription_id) {
+    try {
+      setupLemon()
+      const { data: lsSub } = await getSubscription(data.lemon_subscription_id)
+      customerPortalUrl = lsSub?.data?.attributes?.urls?.customer_portal ?? null
+    } catch {
+      // Non-fatal — portal URL is optional
+    }
+  }
+
   return {
     status: data.status,
     planName: plan?.name ?? null,
@@ -40,36 +76,100 @@ export async function getActiveSubscription(): Promise<ActiveSubscription> {
     interval: plan?.interval ?? null,
     currentPeriodEnd: data.current_period_end,
     cancelAtPeriodEnd: data.cancel_at_period_end,
+    lemonSubscriptionId: (data as { lemon_subscription_id?: string | null }).lemon_subscription_id ?? null,
+    customerPortalUrl,
   }
 }
 
-type UserProfileRow = Database["public"]["Tables"]["user_profile"]["Row"]
-type UserProfileInsert = Database["public"]["Tables"]["user_profile"]["Insert"]
+// ─── Checkout ────────────────────────────────────────────────────────────────
 
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY
-
-if (!stripeSecretKey) {
-  // In server actions we can't throw at import time safely for env issues,
-  // but we still guard Stripe usage inside the action.
-}
-
-const stripe =
-  stripeSecretKey &&
-  new Stripe(stripeSecretKey, {
-    apiVersion: "2026-02-25.clover",
-  })
-
-export type CreatePortalSessionResult =
+export type CreateCheckoutSessionResult =
   | { success: true; url: string }
   | { success: false; error: string }
 
 /**
- * Create a Stripe Billing Portal session so the user can manage or cancel their subscription.
- * Requires the Customer Portal to be configured in the Stripe Dashboard.
+ * Create a LemonSqueezy checkout URL for the Pro plan.
+ * billingInterval: "month" | "year"
  */
-export async function createPortalSession(): Promise<CreatePortalSessionResult> {
-  if (!stripe) {
-    return { success: false, error: "Stripe is not configured on the server." }
+export async function createCheckoutSession(
+  billingInterval: "month" | "year" = "month",
+): Promise<CreateCheckoutSessionResult> {
+  try {
+    setupLemon()
+  } catch {
+    return { success: false, error: "Billing is not configured on the server." }
+  }
+
+  const storeId = process.env.LEMONSQUEEZY_STORE_ID
+  const variantId =
+    billingInterval === "year"
+      ? process.env.LEMONSQUEEZY_VARIANT_ID_PRO_YEAR
+      : process.env.LEMONSQUEEZY_VARIANT_ID_PRO_MONTH
+
+  if (!storeId || !variantId) {
+    return { success: false, error: "Billing variant is not configured." }
+  }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return { success: false, error: "You must be signed in to upgrade your plan." }
+  }
+
+  const appUrl = getAppUrl()
+
+  try {
+    const { data, error } = await createCheckout(storeId, variantId, {
+      checkoutOptions: {
+        embed: false,
+        media: false,
+      },
+      checkoutData: {
+        email: user.email ?? undefined,
+        custom: {
+          supabase_user_id: user.id,
+        },
+      },
+      productOptions: {
+        redirectUrl: `${appUrl}/dashboard/subscription?status=success`,
+        receiptButtonText: "Go to Dashboard",
+        receiptThankYouNote: "Thank you for upgrading to Pro!",
+      },
+    })
+
+    if (error || !data?.data?.attributes?.url) {
+      console.error("[billing] createCheckout failed", error)
+      return {
+        success: false,
+        error: "Could not start checkout. Please try again or contact support.",
+      }
+    }
+
+    return { success: true, url: data.data.attributes.url }
+  } catch (err) {
+    console.error("[billing] createCheckoutSession threw", err instanceof Error ? err.message : err)
+    return {
+      success: false,
+      error: "We couldn't start your upgrade right now. Please try again.",
+    }
+  }
+}
+
+// ─── Cancel subscription ─────────────────────────────────────────────────────
+
+export type CancelSubscriptionResult =
+  | { success: true }
+  | { success: false; error: string }
+
+export async function cancelUserSubscription(): Promise<CancelSubscriptionResult> {
+  try {
+    setupLemon()
+  } catch {
+    return { success: false, error: "Billing is not configured on the server." }
   }
 
   const supabase = await createClient()
@@ -82,147 +182,85 @@ export async function createPortalSession(): Promise<CreatePortalSessionResult> 
     return { success: false, error: "You must be signed in." }
   }
 
-  const { data: profileRow } = await supabase
-    .from("user_profile")
-    .select("stripe_customer_id")
-    .eq("id", user.id)
+  const { data: subRow } = await supabase
+    .from("subscription")
+    .select("lemon_subscription_id")
+    .eq("user_id", user.id)
+    .in("status", ["active", "trialing"])
     .maybeSingle()
 
-  const customerId = (profileRow as { stripe_customer_id?: string | null } | null)?.stripe_customer_id
-  if (!customerId) {
-    return { success: false, error: "No billing account found. Please upgrade first." }
+  const lemonSubId = (subRow as { lemon_subscription_id?: string | null } | null)
+    ?.lemon_subscription_id
+
+  if (!lemonSubId) {
+    return { success: false, error: "No active subscription found." }
   }
 
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL ??
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000")
-
   try {
-    const portalSession = await stripe.billingPortal.sessions.create({
-      customer: customerId,
-      return_url: `${appUrl}/dashboard/subscription`,
-    })
-
-    return { success: true, url: portalSession.url }
-  } catch (error: unknown) {
-    console.error("[billing] createPortalSession failed", {
-      message: error instanceof Error ? error.message : String(error),
-    })
-    return {
-      success: false,
-      error: "Could not open billing portal. Please try again or contact support.",
+    const { error } = await cancelSubscription(lemonSubId)
+    if (error) {
+      console.error("[billing] cancelSubscription failed", error)
+      return { success: false, error: "Could not cancel subscription. Please try again." }
     }
+    return { success: true }
+  } catch (err) {
+    console.error("[billing] cancelUserSubscription threw", err instanceof Error ? err.message : err)
+    return { success: false, error: "Could not cancel subscription. Please try again." }
   }
 }
 
-export type CreateCheckoutSessionResult =
+// ─── Portal session (redirect to LemonSqueezy customer portal) ───────────────
+
+export type CreatePortalSessionResult =
   | { success: true; url: string }
   | { success: false; error: string }
 
-/**
- * Create a Stripe Checkout Session for upgrading to Pro.
- * billingInterval: "month" | "year" (maps to STRIPE_PRICE_PRO_MONTH / STRIPE_PRICE_PRO_YEAR).
- */
-export async function createCheckoutSession(billingInterval: "month" | "year" = "month"): Promise<CreateCheckoutSessionResult> {
-  if (!stripe) {
-    return { success: false, error: "Stripe is not configured on the server." }
-  }
-
-  const priceId =
-    billingInterval === "year"
-      ? process.env.STRIPE_PRICE_PRO_YEAR
-      : process.env.STRIPE_PRICE_PRO_MONTH
-
-  if (!priceId) {
-    return { success: false, error: "Stripe price ID is not configured." }
+export async function createPortalSession(): Promise<CreatePortalSessionResult> {
+  try {
+    setupLemon()
+  } catch {
+    return { success: false, error: "Billing is not configured on the server." }
   }
 
   const supabase = await createClient()
-
   const {
     data: { user },
     error: authError,
   } = await supabase.auth.getUser()
 
   if (authError || !user) {
-    return { success: false, error: "You must be signed in to upgrade your plan." }
+    return { success: false, error: "You must be signed in." }
   }
 
-  // Load existing profile to reuse stripe_customer_id if present
-  const { data: profileRow } = await supabase
-    .from("user_profile")
-    .select("*")
-    .eq("id", user.id)
+  const { data: subRow } = await supabase
+    .from("subscription")
+    .select("lemon_subscription_id")
+    .eq("user_id", user.id)
+    .in("status", ["active", "trialing", "past_due"])
     .maybeSingle()
 
-  const profile = profileRow as UserProfileRow | null
+  const lemonSubId = (subRow as { lemon_subscription_id?: string | null } | null)
+    ?.lemon_subscription_id
 
-  let stripeCustomerId = profile?.stripe_customer_id ?? null
-
-  // Create a new customer in Stripe if needed
-  if (!stripeCustomerId) {
-    const customer = await stripe.customers.create({
-      email: user.email ?? undefined,
-      metadata: {
-        supabase_user_id: user.id,
-      },
-    })
-
-    stripeCustomerId = customer.id
-
-    // Persist the customer id back to Supabase
-    const upsertPayload: UserProfileInsert = {
-      id: user.id,
-      stripe_customer_id: stripeCustomerId,
-    }
-
-    await supabase.from("user_profile").upsert(upsertPayload, { onConflict: "id" })
+  if (!lemonSubId) {
+    return { success: false, error: "No billing account found. Please upgrade first." }
   }
-
-  // Compute base URL for redirect
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL ??
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000")
-
-  const successUrl = `${appUrl}/dashboard/subscription?status=success`
-  const cancelUrl = `${appUrl}/dashboard/subscription?status=cancelled`
 
   try {
-    const session = await stripe.checkout.sessions.create({
-      mode: "subscription",
-      customer: stripeCustomerId,
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-      allow_promotion_codes: true,
-      metadata: {
-        supabase_user_id: user.id,
-      },
-    })
-
-    if (!session.url) {
-      return {
-        success: false,
-        error: "We couldn’t start the checkout session. Please try again in a moment.",
-      }
+    const { data, error } = await getSubscription(lemonSubId)
+    if (error) {
+      console.error("[billing] getSubscription failed", error)
+      return { success: false, error: "Could not open billing portal. Please try again." }
     }
 
-    return { success: true, url: session.url }
-  } catch (error: unknown) {
-    // Log minimal structured detail server-side without exposing internals to the client.
-    console.error("[billing] createCheckoutSession failed", {
-      message: error instanceof Error ? error.message : String(error),
-    })
-
-    return {
-      success: false,
-      error: "We couldn’t start your upgrade right now. Please try again or contact support if this continues.",
+    const portalUrl = data?.data?.attributes?.urls?.customer_portal
+    if (!portalUrl) {
+      return { success: false, error: "Billing portal URL not available." }
     }
+
+    return { success: true, url: portalUrl }
+  } catch (err) {
+    console.error("[billing] createPortalSession threw", err instanceof Error ? err.message : err)
+    return { success: false, error: "Could not open billing portal. Please try again." }
   }
 }
-
