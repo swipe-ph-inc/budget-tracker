@@ -1,16 +1,27 @@
 "use client"
 
-import { useState, useCallback, useEffect, useTransition } from "react"
-import { Sheet, SheetContent } from "@/components/ui/sheet"
+import { useState, useCallback, useEffect, useTransition, useRef } from "react"
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
-import { Sparkles, PanelLeft, Plus, X, Zap, Loader2 } from "lucide-react"
+import {
+  Sparkles,
+  Plus,
+  X,
+  Zap,
+  Loader2,
+  ChevronDown,
+  Check,
+  Pencil,
+  Trash2,
+} from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import Link from "next/link"
 import type { UIMessage } from "ai"
 import type { AIUsage } from "@/app/actions/ai-usage"
 
-import { ThreadSidebar } from "@/components/dashboard/thread-sidebar"
 import { AIBudgetChat } from "@/components/dashboard/ai-budget-chat"
 import {
   createThread,
@@ -32,9 +43,200 @@ function toUIMessages(rows: ChatMessage[]): UIMessage[] {
   }))
 }
 
+// ---------------------------------------------------------------------------
+// Thread selector dropdown (Supabase-style)
+// ---------------------------------------------------------------------------
+interface ThreadSelectorProps {
+  threads: ChatThread[]
+  activeThreadId: string | null
+  onSelect: (id: string) => void
+  onNewChat: () => void
+  onRename: (id: string, title: string) => Promise<void>
+  onDelete: (id: string) => Promise<void>
+}
+
+function ThreadSelector({
+  threads,
+  activeThreadId,
+  onSelect,
+  onNewChat,
+  onRename,
+  onDelete,
+}: ThreadSelectorProps) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState("")
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [draftTitle, setDraftTitle] = useState("")
+  const renameInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (renamingId && renameInputRef.current) {
+      renameInputRef.current.focus()
+    }
+  }, [renamingId])
+
+  const activeThread = threads.find((t) => t.id === activeThreadId)
+  const filtered = threads.filter((t) =>
+    t.title.toLowerCase().includes(search.toLowerCase())
+  )
+
+  const commitRename = async (id: string) => {
+    const trimmed = draftTitle.trim()
+    if (trimmed) await onRename(id, trimmed)
+    setRenamingId(null)
+    setDraftTitle("")
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="flex max-w-[200px] items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+        >
+          <span className="truncate">
+            {activeThread?.title ?? "New chat"}
+          </span>
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        </button>
+      </PopoverTrigger>
+
+      <PopoverContent
+        side="bottom"
+        align="start"
+        className="w-72 p-0 shadow-lg"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
+        {/* Search */}
+        <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-4 w-4 shrink-0 text-muted-foreground"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.35-4.35" />
+          </svg>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search chats..."
+            className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+          />
+        </div>
+
+        {/* Thread list */}
+        <ScrollArea className="max-h-60">
+          <div className="py-1">
+            {filtered.length === 0 && (
+              <p className="px-3 py-4 text-center text-xs text-muted-foreground">
+                {search ? "No matching chats" : "No conversations yet"}
+              </p>
+            )}
+            {filtered.map((thread) => (
+              <div
+                key={thread.id}
+                className="group relative flex items-center gap-2 px-3 py-2 hover:bg-accent"
+              >
+                {renamingId === thread.id ? (
+                  <input
+                    ref={renameInputRef}
+                    value={draftTitle}
+                    onChange={(e) => setDraftTitle(e.target.value)}
+                    onBlur={() => void commitRename(thread.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void commitRename(thread.id)
+                      if (e.key === "Escape") {
+                        setRenamingId(null)
+                        setDraftTitle("")
+                      }
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex-1 rounded border border-border bg-background px-2 py-0.5 text-sm text-foreground outline-none focus:ring-1 focus:ring-primary"
+                  />
+                ) : (
+                  <>
+                    {/* Checkmark for active thread */}
+                    <Check
+                      className={cn(
+                        "h-4 w-4 shrink-0 text-primary",
+                        thread.id === activeThreadId ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    <button
+                      type="button"
+                      className="flex-1 truncate text-left text-sm text-foreground"
+                      onClick={() => {
+                        onSelect(thread.id)
+                        setOpen(false)
+                        setSearch("")
+                      }}
+                    >
+                      {thread.title}
+                    </button>
+
+                    {/* Hover actions */}
+                    <div className="invisible flex shrink-0 items-center gap-0.5 group-hover:visible">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setDraftTitle(thread.title)
+                          setRenamingId(thread.id)
+                        }}
+                        className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        aria-label="Rename"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async (e) => {
+                          e.stopPropagation()
+                          await onDelete(thread.id)
+                          if (thread.id === activeThreadId) setOpen(false)
+                        }}
+                        className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        aria-label="Delete"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+
+        {/* New chat */}
+        <div className="border-t border-border p-1">
+          <button
+            type="button"
+            onClick={() => {
+              onNewChat()
+              setOpen(false)
+              setSearch("")
+            }}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground transition-colors hover:bg-accent"
+          >
+            <Plus className="h-4 w-4 shrink-0 text-muted-foreground" />
+            Start a new chat
+          </button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Main panel
+// ---------------------------------------------------------------------------
 export function AiAssistantPanel() {
   const [open, setOpen] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(true)
   const [loaded, setLoaded] = useState(false)
   const [threads, setThreads] = useState<ChatThread[]>([])
   const [usage, setUsage] = useState<AIUsage | null>(null)
@@ -63,8 +265,6 @@ export function AiAssistantPanel() {
     usage.chatLimit !== null &&
     usage.chatMessagesUsed >= usage.chatLimit
 
-  // ------------------------------------------------------------------
-  // Thread handlers
   // ------------------------------------------------------------------
   const handleSelectThread = useCallback(async (threadId: string) => {
     if (threadId === activeThreadId) return
@@ -127,38 +327,9 @@ export function AiAssistantPanel() {
     }
   }, [])
 
-  // Usage bar for free users
-  const usageBar = usage && !usage.isPro && usage.chatLimit !== null ? (
-    <div className="shrink-0 border-t border-border px-3 py-3">
-      <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1.5">
-        <span>Free Plan</span>
-        <span>{usage.chatMessagesUsed}/{usage.chatLimit} messages</span>
-      </div>
-      <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-        <div
-          className={cn(
-            "h-full rounded-full transition-all",
-            limitReached ? "bg-destructive" : "bg-primary"
-          )}
-          style={{
-            width: `${Math.min(100, Math.round((usage.chatMessagesUsed / usage.chatLimit) * 100))}%`,
-          }}
-        />
-      </div>
-      <Link
-        href="/dashboard/subscription"
-        className="mt-2 flex items-center gap-1 text-[11px] text-primary hover:underline"
-        onClick={() => setOpen(false)}
-      >
-        <Zap className="h-3 w-3" />
-        Upgrade for unlimited
-      </Link>
-    </div>
-  ) : null
-
   return (
     <>
-      {/* Trigger button — rendered in the top header */}
+      {/* Trigger button in top nav */}
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -172,30 +343,46 @@ export function AiAssistantPanel() {
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent
           side="right"
-          className="flex w-full flex-col p-0 sm:max-w-[680px] [&>button]:hidden"
+          className="flex w-full flex-col p-0 sm:max-w-[560px] [&>button]:hidden"
         >
+          {/* Required for screen reader accessibility */}
+          <SheetTitle className="sr-only">AI Assistant</SheetTitle>
+
           {/* Header */}
-          <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3">
-            <button
-              type="button"
-              onClick={() => setSidebarOpen((v) => !v)}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              aria-label="Toggle thread history"
-            >
-              <PanelLeft className="h-4 w-4" />
-            </button>
-
+          <div className="flex h-12 shrink-0 items-center gap-1 border-b border-border px-3">
             <Sparkles className="h-4 w-4 shrink-0 text-primary" />
-            <span className="flex-1 text-sm font-semibold text-foreground">AI Assistant</span>
 
-            <button
-              type="button"
-              onClick={handleNewChat}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              aria-label="New chat"
-            >
-              <Plus className="h-4 w-4" />
-            </button>
+            {/* Thread selector dropdown */}
+            {loaded ? (
+              <ThreadSelector
+                threads={threads}
+                activeThreadId={activeThreadId}
+                onSelect={handleSelectThread}
+                onNewChat={handleNewChat}
+                onRename={handleRename}
+                onDelete={handleDelete}
+              />
+            ) : (
+              <span className="px-2.5 py-1.5 text-sm font-medium text-foreground">
+                New chat
+              </span>
+            )}
+
+            <div className="flex-1" />
+
+            {/* Usage badge for free users */}
+            {usage && !usage.isPro && usage.chatLimit !== null && (
+              <span
+                className={cn(
+                  "hidden shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium sm:inline-flex",
+                  limitReached
+                    ? "bg-destructive/10 text-destructive"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                {usage.chatMessagesUsed}/{usage.chatLimit}
+              </span>
+            )}
 
             <button
               type="button"
@@ -207,60 +394,40 @@ export function AiAssistantPanel() {
             </button>
           </div>
 
-          {/* Body */}
-          <div className="flex min-h-0 flex-1 overflow-hidden">
-            {/* Thread sidebar (collapsible) */}
-            {sidebarOpen && (
-              <div className="flex w-56 shrink-0 flex-col border-r border-border">
-                <div className="min-h-0 flex-1">
-                  <ThreadSidebar
-                    threads={threads}
-                    activeThreadId={activeThreadId}
-                    onSelect={handleSelectThread}
-                    onNewChat={handleNewChat}
-                    onRename={handleRename}
-                    onDelete={handleDelete}
-                  />
-                </div>
-                {usageBar}
+          {/* Chat body */}
+          <div className="flex min-h-0 flex-1 flex-col">
+            {!loaded ? (
+              <PanelLoadingSkeleton />
+            ) : messagesLoading ? (
+              <PanelLoadingSkeleton />
+            ) : limitReached && resolvedThreadId === null ? (
+              <LimitReachedBanner
+                used={usage!.chatMessagesUsed}
+                limit={usage!.chatLimit!}
+                onClose={() => setOpen(false)}
+              />
+            ) : creating ? (
+              <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Starting conversation…
               </div>
+            ) : resolvedThreadId === null ? (
+              <NewChatInterceptor
+                limitReached={limitReached}
+                onFirstMessage={async (msg) => {
+                  setCreating(true)
+                  const id = await handleCreateThread(msg)
+                  setCreating(false)
+                  return id
+                }}
+              />
+            ) : (
+              <AIBudgetChat
+                key={resolvedThreadId}
+                threadId={resolvedThreadId}
+                initialMessages={activeMessages}
+              />
             )}
-
-            {/* Chat area */}
-            <div className="flex min-w-0 flex-1 flex-col">
-              {!loaded ? (
-                <PanelLoadingSkeleton />
-              ) : messagesLoading ? (
-                <PanelLoadingSkeleton />
-              ) : limitReached && resolvedThreadId === null ? (
-                <LimitReachedBanner
-                  used={usage!.chatMessagesUsed}
-                  limit={usage!.chatLimit!}
-                  onClose={() => setOpen(false)}
-                />
-              ) : creating ? (
-                <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Starting conversation…
-                </div>
-              ) : resolvedThreadId === null ? (
-                <NewChatInterceptor
-                  limitReached={limitReached}
-                  onFirstMessage={async (msg) => {
-                    setCreating(true)
-                    const id = await handleCreateThread(msg)
-                    setCreating(false)
-                    return id
-                  }}
-                />
-              ) : (
-                <AIBudgetChat
-                  key={resolvedThreadId}
-                  threadId={resolvedThreadId}
-                  initialMessages={activeMessages}
-                />
-              )}
-            </div>
           </div>
         </SheetContent>
       </Sheet>
