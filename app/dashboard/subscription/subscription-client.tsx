@@ -266,7 +266,7 @@ export function SubscriptionClient({ subscription }: { subscription: ActiveSubsc
           </div>
 
           {/* Plan cards */}
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 max-w-2xl mx-auto w-full">
             {plans.map((plan) => {
               const price = billing === "monthly" ? plan.monthlyPrice : plan.yearlyPrice
               const PlanIcon = plan.icon
