@@ -44,8 +44,8 @@ const plans = [
     id: "pro",
     name: "Pro",
     icon: Crown,
-    monthlyPrice: 9.99,
-    yearlyPrice: 99.99,
+    monthlyPrice: 4.99,
+    yearlyPrice: 49.99,
     description: "Full financial control with advanced analytics and unlimited tools.",
     features: [
       "Everything in Free",
@@ -63,8 +63,8 @@ const plans = [
     id: "business",
     name: "Business",
     icon: Building2,
-    monthlyPrice: 29.99,
-    yearlyPrice: 299.99,
+    monthlyPrice: 14.99,
+    yearlyPrice: 149.99,
     description: "For teams and businesses managing company finances together.",
     features: [
       "Everything in Pro",
@@ -86,7 +86,7 @@ const faqs = [
   },
   {
     q: "What payment methods do you accept?",
-    a: "We accept all major credit cards (Visa, Mastercard, American Express), PayPal, and bank transfers for annual plans.",
+    a: "We accept all major credit cards (Visa, Mastercard, American Express) and PayPal via LemonSqueezy's secure checkout.",
   },
   {
     q: "Is there a free trial for Pro?",

@@ -21,7 +21,7 @@ const plans = [
   },
   {
     name: "Pro",
-    price: "$9",
+    price: "$4.99",
     period: "/month",
     description: "For users who want full control of their financial life.",
     features: [
@@ -39,9 +39,9 @@ const plans = [
   },
   {
     name: "Pro Annual",
-    price: "$90",
+    price: "$49.99",
     period: "/year",
-    description: "Same as Pro, billed annually. Just $7.50/mo — save $18 a year.",
+    description: "Same as Pro, billed annually. Just $4.17/mo — save ~17% a year.",
     features: [
       "Everything in Pro",
       "Unlimited payment accounts",
