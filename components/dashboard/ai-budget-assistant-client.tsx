@@ -5,13 +5,14 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
-import { Settings, PanelLeft, Sparkles } from "lucide-react"
+import { PanelLeft, Sparkles, Zap } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
+import Link from "next/link"
 import type { UIMessage } from "ai"
+import type { AIUsage } from "@/app/actions/ai-usage"
 
 import { ThreadSidebar } from "@/components/dashboard/thread-sidebar"
 import { AIBudgetChat } from "@/components/dashboard/ai-budget-chat"
-import { AISettingsDrawer } from "@/components/dashboard/ai-settings-drawer"
 import {
   createThread,
   renameThread,
@@ -33,16 +34,21 @@ function toUIMessages(rows: ChatMessage[]): UIMessage[] {
 
 interface AIBudgetAssistantClientProps {
   initialThreads: ChatThread[]
+  initialUsage: AIUsage
 }
 
-export function AIBudgetAssistantClient({ initialThreads }: AIBudgetAssistantClientProps) {
+export function AIBudgetAssistantClient({ initialThreads, initialUsage }: AIBudgetAssistantClientProps) {
   const [threads, setThreads] = useState<ChatThread[]>(initialThreads)
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null)
   const [activeMessages, setActiveMessages] = useState<UIMessage[]>([])
   const [messagesLoading, setMessagesLoading] = useState(false)
-  const [settingsOpen, setSettingsOpen] = useState(false)
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
   const [, startTransition] = useTransition()
+
+  const limitReached =
+    !initialUsage.isPro &&
+    initialUsage.chatLimit !== null &&
+    initialUsage.chatMessagesUsed >= initialUsage.chatLimit
 
   // ------------------------------------------------------------------
   // Select an existing thread
@@ -64,9 +70,7 @@ export function AIBudgetAssistantClient({ initialThreads }: AIBudgetAssistantCli
   }, [activeThreadId])
 
   // ------------------------------------------------------------------
-  // Start a new (pending) chat — thread is created on first send
-  // via the parent's onBeforeSend pattern, but here we simply clear state.
-  // The AIBudgetChat key reset will recreate the runtime.
+  // Start a new chat
   // ------------------------------------------------------------------
   const handleNewChat = useCallback(() => {
     setActiveThreadId(null)
@@ -108,15 +112,6 @@ export function AIBudgetAssistantClient({ initialThreads }: AIBudgetAssistantCli
 
   // ------------------------------------------------------------------
   // Create thread before first message is sent
-  // Called by the parent page before the chat API is invoked.
-  // Since AssistantChatTransport fires the request automatically on send,
-  // we handle new-thread creation by intercepting the first render:
-  // when activeThreadId is null and the user has sent something, we
-  // create the thread here and sync back the id.
-  // We do this by passing a stable threadId (or null) to AIBudgetChat.
-  // For new chats, a thread is created lazily on the server via the
-  // chat action when threadId is present. We create it here upfront so
-  // we have an ID to pass before the first send.
   // ------------------------------------------------------------------
   const handleCreateThread = useCallback(async (firstMessage: string) => {
     const title = firstMessage.trim().slice(0, 60) || "New conversation"
@@ -132,15 +127,50 @@ export function AIBudgetAssistantClient({ initialThreads }: AIBudgetAssistantCli
     }
   }, [])
 
+  // ------------------------------------------------------------------
+  // Usage counter shown in sidebar for free users
+  // ------------------------------------------------------------------
+  const usageBar = !initialUsage.isPro && initialUsage.chatLimit !== null ? (
+    <div className="shrink-0 border-t border-border px-3 py-3">
+      <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1.5">
+        <span>Free Plan</span>
+        <span>{initialUsage.chatMessagesUsed}/{initialUsage.chatLimit} messages</span>
+      </div>
+      <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+        <div
+          className={cn(
+            "h-full rounded-full transition-all",
+            limitReached ? "bg-destructive" : "bg-primary"
+          )}
+          style={{
+            width: `${Math.min(100, Math.round((initialUsage.chatMessagesUsed / initialUsage.chatLimit) * 100))}%`,
+          }}
+        />
+      </div>
+      <Link
+        href="/dashboard/subscription"
+        className="mt-2 flex items-center gap-1 text-[11px] text-primary hover:underline"
+      >
+        <Zap className="h-3 w-3" />
+        Upgrade for unlimited
+      </Link>
+    </div>
+  ) : null
+
   const threadSidebarContent = (
-    <ThreadSidebar
-      threads={threads}
-      activeThreadId={activeThreadId}
-      onSelect={handleSelectThread}
-      onNewChat={handleNewChat}
-      onRename={handleRename}
-      onDelete={handleDelete}
-    />
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="min-h-0 flex-1">
+        <ThreadSidebar
+          threads={threads}
+          activeThreadId={activeThreadId}
+          onSelect={handleSelectThread}
+          onNewChat={handleNewChat}
+          onRename={handleRename}
+          onDelete={handleDelete}
+        />
+      </div>
+      {usageBar}
+    </div>
   )
 
   return (
@@ -167,28 +197,21 @@ export function AIBudgetAssistantClient({ initialThreads }: AIBudgetAssistantCli
 
           <Sparkles className="h-4 w-4 shrink-0 text-primary" />
           <h1 className="flex-1 text-sm font-semibold text-foreground">AI Budget Assistant</h1>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            className="gap-1.5 text-muted-foreground hover:text-foreground"
-            onClick={() => setSettingsOpen(true)}
-          >
-            <Settings className="h-4 w-4" />
-            <span className="hidden sm:inline text-xs">Settings</span>
-          </Button>
         </div>
 
         {/* Chat area */}
         <div className="min-h-0 flex-1">
           {messagesLoading ? (
             <ThreadLoadingSkeleton />
+          ) : limitReached && activeThreadId === null ? (
+            <LimitReachedBanner used={initialUsage.chatMessagesUsed} limit={initialUsage.chatLimit!} />
           ) : (
             <AIBudgetAssistantChatWrapper
               key={activeThreadId ?? "new"}
               activeThreadId={activeThreadId}
               activeMessages={activeMessages}
               onCreateThread={handleCreateThread}
+              limitReached={limitReached}
             />
           )}
         </div>
@@ -200,36 +223,60 @@ export function AIBudgetAssistantClient({ initialThreads }: AIBudgetAssistantCli
           {threadSidebarContent}
         </SheetContent>
       </Sheet>
+    </div>
+  )
+}
 
-      {/* ---- AI Settings drawer ---- */}
-      <AISettingsDrawer open={settingsOpen} onOpenChange={setSettingsOpen} />
+// ---------------------------------------------------------------------------
+// Limit reached banner — shown when free user has exhausted monthly messages
+// ---------------------------------------------------------------------------
+function LimitReachedBanner({ used, limit }: { used: number; limit: number }) {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-5 p-6 text-center">
+      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+        <Sparkles className="h-7 w-7 text-primary" />
+      </div>
+      <div className="space-y-1.5">
+        <p className="text-base font-semibold text-foreground">Monthly limit reached</p>
+        <p className="max-w-xs text-sm text-muted-foreground">
+          You've used {used}/{limit} messages this month. Upgrade to Pro for unlimited AI
+          conversations and receipt scans.
+        </p>
+      </div>
+      <div className="flex flex-col items-center gap-2">
+        <Link
+          href="/dashboard/subscription"
+          className="flex items-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          <Zap className="h-4 w-4" />
+          Upgrade to Pro
+        </Link>
+        <p className="text-xs text-muted-foreground">
+          Limit resets on the 1st of each month
+        </p>
+      </div>
     </div>
   )
 }
 
 // ---------------------------------------------------------------------------
 // Inner wrapper that handles the new-thread creation flow before first send.
-// We use a CreationInterceptor pattern: for "new" chats, we create the thread
-// synchronously before the runtime sends the first request.
 // ---------------------------------------------------------------------------
 interface ChatWrapperProps {
   activeThreadId: string | null
   activeMessages: UIMessage[]
   onCreateThread: (firstMessage: string) => Promise<string | null>
+  limitReached: boolean
 }
 
 function AIBudgetAssistantChatWrapper({
   activeThreadId,
   activeMessages,
   onCreateThread,
+  limitReached,
 }: ChatWrapperProps) {
   const [resolvedThreadId, setResolvedThreadId] = useState<string | null>(activeThreadId)
   const [creating, setCreating] = useState(false)
-
-  // When a new thread is created externally (e.g. user switches threads),
-  // sync the resolved ID
-  // NOTE: key reset on parent ensures this component remounts on thread change,
-  // so resolvedThreadId always starts fresh from activeThreadId.
 
   if (creating) {
     return (
@@ -239,12 +286,10 @@ function AIBudgetAssistantChatWrapper({
     )
   }
 
-  // For brand-new chats (no threadId yet), we need to create the thread
-  // before the first message is sent. We expose a wrapper that intercepts
-  // the first user input.
   if (resolvedThreadId === null) {
     return (
       <NewChatInterceptor
+        limitReached={limitReached}
         onFirstMessage={async (msg) => {
           setCreating(true)
           const id = await onCreateThread(msg)
@@ -270,15 +315,16 @@ function AIBudgetAssistantChatWrapper({
 // ---------------------------------------------------------------------------
 interface NewChatInterceptorProps {
   onFirstMessage: (msg: string) => Promise<string | null>
+  limitReached: boolean
 }
 
-function NewChatInterceptor({ onFirstMessage }: NewChatInterceptorProps) {
+function NewChatInterceptor({ onFirstMessage, limitReached }: NewChatInterceptorProps) {
   const [pending, setPending] = useState(false)
   const [input, setInput] = useState("")
 
   const handleSend = async () => {
     const trimmed = input.trim()
-    if (!trimmed || pending) return
+    if (!trimmed || pending || limitReached) return
     setPending(true)
     await onFirstMessage(trimmed)
     // After this, the parent sets resolvedThreadId and remounts to AIBudgetChat
@@ -301,43 +347,52 @@ function NewChatInterceptor({ onFirstMessage }: NewChatInterceptorProps) {
 
       {/* Composer */}
       <div className="shrink-0 border-t border-border bg-background p-4">
-        <div className="flex items-end gap-2 rounded-xl border border-border bg-card p-2 shadow-sm">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault()
-                void handleSend()
-              }
-            }}
-            placeholder="Message AI Budget Assistant..."
-            rows={1}
-            disabled={pending}
-            className="min-h-[44px] max-h-32 flex-1 resize-none border-0 bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none disabled:opacity-50"
-          />
-          <button
-            type="button"
-            onClick={handleSend}
-            disabled={!input.trim() || pending}
-            className={cn(
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-            )}
-            aria-label="Send message"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              className="h-4 w-4"
+        {limitReached ? (
+          <div className="flex items-center justify-center gap-2 rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+            <span>Monthly limit reached.</span>
+            <Link href="/dashboard/subscription" className="font-medium text-primary hover:underline">
+              Upgrade to Pro →
+            </Link>
+          </div>
+        ) : (
+          <div className="flex items-end gap-2 rounded-xl border border-border bg-card p-2 shadow-sm">
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault()
+                  void handleSend()
+                }
+              }}
+              placeholder="Message AI Budget Assistant..."
+              rows={1}
+              disabled={pending}
+              className="min-h-[44px] max-h-32 flex-1 resize-none border-0 bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none disabled:opacity-50"
+            />
+            <button
+              type="button"
+              onClick={handleSend}
+              disabled={!input.trim() || pending}
+              className={cn(
+                "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+              )}
+              aria-label="Send message"
             >
-              <path d="M22 2 11 13" />
-              <path d="m22 2-7 20-4-9-9-4 20-7z" />
-            </svg>
-          </button>
-        </div>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                className="h-4 w-4"
+              >
+                <path d="M22 2 11 13" />
+                <path d="m22 2-7 20-4-9-9-4 20-7z" />
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
