@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select"
 import { SuccessMessage, ErrorMessage } from "@/components/ui/status-message"
 import { createPayment } from "@/app/actions/transaction"
-import { getMerchants, type MerchantOption } from "@/app/actions/merchants"
+import { getMerchantsWithCategories, type MerchantWithCategory } from "@/app/actions/merchants"
 import { AiBudgetCheckDialog, type PaymentCheckData } from "@/components/ai/ai-budget-check-dialog"
 import { Loader2, Paperclip, X, CheckCircle2 } from "lucide-react"
 import type { ReceiptData } from "@/app/api/ai/read-receipt/route"
@@ -75,7 +75,7 @@ export function PaymentAccountDialog({
   const [note, setNote] = useState("")
   const [feeAmount, setFeeAmount] = useState("")
   const [dueDate, setDueDate] = useState("")
-  const [merchants, setMerchants] = useState<MerchantOption[]>([])
+  const [merchants, setMerchants] = useState<MerchantWithCategory[]>([])
   const [merchantsLoading, setMerchantsLoading] = useState(false)
   const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -116,7 +116,7 @@ export function PaymentAccountDialog({
   useEffect(() => {
     if (!open) return
     setMerchantsLoading(true)
-    getMerchants()
+    getMerchantsWithCategories()
       .then(setMerchants)
       .catch(() => setMerchants([]))
       .finally(() => setMerchantsLoading(false))
