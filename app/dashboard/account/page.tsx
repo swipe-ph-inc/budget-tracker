@@ -17,7 +17,7 @@ import {
   Store,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { AddAccountDialog } from "@/components/account/add-account-dialog"
 import {
   UpdateAccountDialog,
@@ -72,7 +72,7 @@ function formatMaskedNumber(value: string): string {
   return cleaned.replace(/(.{4})/g, "$1 ").trim()
 }
 
-/** Map account rows to the card shape used by the carousel. Uses dummy data for fields not in account. */
+/** Map account rows to the card shape used by the carousel. Uses dum data for fields not in account. */
 function transformAccountToCards(accounts: AccountRow[]): CardTypes[] {
   return accounts.map((acc, i) => {
     const balanceFormatted = new Intl.NumberFormat(undefined, {
@@ -237,19 +237,24 @@ export default function AccountPage() {
   }, [loadPageData])
 
   const updateTrackTransform = useCallback(() => {
-    if (!containerRef.current || !trackRef.current) return
+    if (!containerRef.current || !trackRef.current || totalCards === 0) return
     const containerWidth = containerRef.current.offsetWidth
+    if (containerWidth === 0) return
     const cardCenterOffset = selectedIndex * (CARD_WIDTH_PX + CARD_GAP_PX) + CARD_WIDTH_PX / 2
     const transformX = containerWidth / 2 - cardCenterOffset
     trackRef.current.style.transform = `translate3d(${transformX}px, 0, 0)`
-  }, [selectedIndex])
+  }, [selectedIndex, totalCards])
 
-  useEffect(() => {
+  // useLayoutEffect: run before paint so the track is never shown left-aligned (refs were
+  // null while loading=true, so the [updateTrackTransform]-only effect did not re-run on mount).
+  useLayoutEffect(() => {
     updateTrackTransform()
-    const ro = new ResizeObserver(updateTrackTransform)
+    const ro = new ResizeObserver(() => {
+      updateTrackTransform()
+    })
     if (containerRef.current) ro.observe(containerRef.current)
     return () => ro.disconnect()
-  }, [updateTrackTransform])
+  }, [updateTrackTransform, loading, totalCards])
 
   const goPrev = () => {
     setSelectedIndex((i) => (i <= 0 ? totalCards - 1 : i - 1))
