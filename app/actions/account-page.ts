@@ -1,6 +1,10 @@
 "use server"
 
-import { getAccounts } from "@/app/actions/accounts"
+import {
+  getAccounts,
+  getActiveAccountCount,
+  type AccountListScope,
+} from "@/app/actions/accounts"
 import { getActiveSubscription } from "@/app/actions/billing"
 import {
   getAccountTransactions,
@@ -12,19 +16,26 @@ type AccountRow = Database["public"]["Tables"]["account"]["Row"]
 
 export type AccountPageData = {
   accounts: AccountRow[]
+  /** Active, non-deleted count — used for free-tier limit regardless of list filter. */
+  activeAccountCount: number
   subscription: Awaited<ReturnType<typeof getActiveSubscription>>
   transactionsByAccountId: Record<string, AccountTransaction[]>
 }
+
+export type { AccountListScope }
 
 /**
  * Load all data needed for the Account page in one round-trip:
  * accounts, subscription, and transactions for each account.
  * Renders only after everything is ready so the page appears at once.
  */
-export async function getAccountPageData(): Promise<AccountPageData> {
-  const [accountsResult, subscription] = await Promise.all([
-    getAccounts(),
+export async function getAccountPageData(
+  scope: AccountListScope = "active"
+): Promise<AccountPageData> {
+  const [accountsResult, subscription, activeAccountCount] = await Promise.all([
+    getAccounts(scope),
     getActiveSubscription(),
+    getActiveAccountCount(),
   ])
   const accounts = accountsResult ?? []
   const transactionsByAccountId: Record<string, AccountTransaction[]> = {}
@@ -40,6 +51,7 @@ export async function getAccountPageData(): Promise<AccountPageData> {
 
   return {
     accounts,
+    activeAccountCount,
     subscription: subscription ?? null,
     transactionsByAccountId,
   }

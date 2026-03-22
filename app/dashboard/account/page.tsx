@@ -15,6 +15,7 @@ import {
   CircleX,
   ShieldOff,
   Store,
+  Filter,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
@@ -27,8 +28,12 @@ import { TopUpAccountDialog } from "@/components/account/top-up-account-dialog"
 import { TransferAccountDialog } from "@/components/account/transfer-account-dialog"
 import { PaymentAccountDialog } from "@/components/account/payment-account-dialog"
 import { ManageMerchantDialog } from "@/components/account/manage-merchant-dialog"
-import { getAccounts, deactivateAccount, deleteAccount } from "@/app/actions/accounts"
-import { getAccountPageData, type AccountPageData } from "@/app/actions/account-page"
+import { deactivateAccount, deleteAccount } from "@/app/actions/accounts"
+import {
+  getAccountPageData,
+  type AccountListScope,
+  type AccountPageData,
+} from "@/app/actions/account-page"
 import { getActiveSubscription } from "@/app/actions/billing"
 import { type AccountTransaction } from "@/app/actions/transaction"
 import type { Database } from "@/lib/supabase/database.types"
@@ -42,6 +47,14 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 type AccountRow = Database["public"]["Tables"]["account"]["Row"]
 
 type CardTypes = {
@@ -61,7 +74,7 @@ type CardTypes = {
   bankName: string | null
   backgroundImg: string | Blob | null | undefined
   isActive: boolean
-  isDeactivated: boolean | null
+  isDeleted: boolean
   cardType: string | null
 }
 
@@ -72,7 +85,7 @@ function formatMaskedNumber(value: string): string {
   return cleaned.replace(/(.{4})/g, "$1 ").trim()
 }
 
-/** Map account rows to the card shape used by the carousel. Uses dum data for fields not in account. */
+/** Map account rows to the card shape used by the carousel. */
 function transformAccountToCards(accounts: AccountRow[]): CardTypes[] {
   return accounts.map((acc, i) => {
     const balanceFormatted = new Intl.NumberFormat(undefined, {
@@ -106,7 +119,7 @@ function transformAccountToCards(accounts: AccountRow[]): CardTypes[] {
       variant: i % 2 === 0 ? "light" : "dark",
       backgroundImg: acc.background_img_url,
       isActive: acc.is_active,
-      isDeactivated: acc.is_deleted,
+      isDeleted: acc.is_deleted ?? false,
       cardType: acc.card_network_url
     }
   })
@@ -170,13 +183,15 @@ export default function AccountPage() {
     useState<UpdateAccountInitialValues | null>(null)
   const [manageMerchantOpen, setManageMerchantOpen] = useState(false)
   const [transactions, setTransactions] = useState<AccountTransaction[]>([])
+  const [accountListScope, setAccountListScope] =
+    useState<AccountListScope>("active")
   const trackRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const loadPageData = useCallback(async () => {
+  const loadPageData = useCallback(async (scope: AccountListScope = accountListScope) => {
     setLoading(true)
     try {
-      const data = await getAccountPageData()
+      const data = await getAccountPageData(scope)
       setPageData(data)
       setAccounts(data.accounts)
       setSubscription(data.subscription)
@@ -194,11 +209,12 @@ export default function AccountPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [accountListScope])
 
   useEffect(() => {
-    loadPageData()
-  }, [loadPageData])
+    void loadPageData("active")
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initial load only; filter changes call loadPageData explicitly
+  }, [])
 
   useEffect(() => {
     if (accounts.length === 0) {
@@ -227,14 +243,19 @@ export default function AccountPage() {
 
   const cardsList = cards ?? []
   const selectedCard = cardsList[selectedIndex]
+  const selectedAccountRow = accounts.find((a) => a.id === selectedCard?.id)
+  const canUseMoneyActions =
+    !!selectedAccountRow &&
+    selectedAccountRow.is_active &&
+    !selectedAccountRow.is_deleted
   const totalCards = cardsList.length
-  const accountCount = accounts.length
+  const activeAccountCountForLimit = pageData?.activeAccountCount ?? 0
   const isPro = subscription !== null
-  const canAddAccount = isPro || accountCount < 3
+  const canAddAccount = isPro || activeAccountCountForLimit < 3
 
   const refreshAfterMutation = useCallback(() => {
-    void loadPageData()
-  }, [loadPageData])
+    void loadPageData(accountListScope)
+  }, [loadPageData, accountListScope])
 
   const updateTrackTransform = useCallback(() => {
     if (!containerRef.current || !trackRef.current || totalCards === 0) return
@@ -362,9 +383,42 @@ export default function AccountPage() {
       <div className="min-h-0 flex-1 overflow-y-auto p-4 lg:p-6">
         {/* ========== CAROUSEL AT TOP ========== */}
         <div className="rounded-xl border border-border bg-card p-4 lg:p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-semibold text-card-foreground">My Cards</h2>
-            <div className="flex items-center gap-2">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+              <h2 className="text-base font-semibold text-card-foreground">My Cards</h2>
+              <div className="flex items-center gap-2">
+                <Filter
+                  className="h-4 w-4 shrink-0 text-muted-foreground"
+                  aria-hidden
+                />
+                <Label htmlFor="account-list-scope" className="sr-only">
+                  Show accounts
+                </Label>
+                <Select
+                  value={accountListScope}
+                  onValueChange={(v) => {
+                    const next = v as AccountListScope
+                    setAccountListScope(next)
+                    void loadPageData(next)
+                  }}
+                >
+                  <SelectTrigger
+                    id="account-list-scope"
+                    className="h-9 w-[min(100%,260px)] sm:w-[280px]"
+                  >
+                    <SelectValue placeholder="Filter accounts" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active only</SelectItem>
+                    <SelectItem value="non_deleted">
+                      Active &amp; deactivated
+                    </SelectItem>
+                    <SelectItem value="all">All (including deleted)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 sm:justify-end">
               {!canAddAccount && (
                 <span className="flex items-center gap-1 text-xs text-muted-foreground">
                   <Crown className="h-3.5 w-3.5 shrink-0 text-amber-500" />
@@ -435,6 +489,16 @@ export default function AccountPage() {
                         alt=""
                       />
                       <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-black/40 via-black/10 to-black/60" />
+
+                      {card.isDeleted ? (
+                        <span className="absolute left-3 top-3 z-20 rounded-md bg-destructive px-2 py-0.5 text-[10px] font-semibold uppercase text-destructive-foreground shadow">
+                          Deleted
+                        </span>
+                      ) : !card.isActive ? (
+                        <span className="absolute left-3 top-3 z-20 rounded-md bg-amber-600 px-2 py-0.5 text-[10px] font-semibold uppercase text-white shadow">
+                          Deactivated
+                        </span>
+                      ) : null}
 
                       <div className="relative flex h-full flex-col justify-between px-6 pt-4 pb-5">
                         <div className="flex min-w-0 justify-between gap-3">
@@ -566,7 +630,8 @@ export default function AccountPage() {
                           type="button"
                           title={action.label}
                           onClick={handleClick}
-                          className={`flex h-9 min-w-[88px] items-center justify-center gap-1.5 rounded-lg border bg-muted/50 px-4 text-xs font-medium transition-colors ${colorClasses}`}
+                          disabled={!canUseMoneyActions}
+                          className={`flex h-9 min-w-[88px] items-center justify-center gap-1.5 rounded-lg border bg-muted/50 px-4 text-xs font-medium transition-colors disabled:pointer-events-none disabled:opacity-40 ${colorClasses}`}
                         >
                           <action.icon className="h-3.5 w-3.5" aria-hidden />
                           <span>{action.label}</span>
@@ -611,15 +676,20 @@ export default function AccountPage() {
                   <div>
                     <p className="text-xs text-muted-foreground">Status</p>
                     <p className="mt-1 flex items-center gap-1.5 text-sm font-bold text-card-foreground">
-                      {selectedCard.isActive ? (
+                      {selectedCard.isDeleted ? (
                         <>
-                          <CircleCheck className="h-4 w-4 text-green-500" aria-label="Active" />
-                          <span className="text-green-500">Active</span>
+                          <Trash className="h-4 w-4 text-destructive" aria-label="Deleted" />
+                          <span className="text-destructive">Deleted</span>
+                        </>
+                      ) : !selectedCard.isActive ? (
+                        <>
+                          <CircleX className="h-4 w-4 text-amber-600" aria-label="Deactivated" />
+                          <span className="text-amber-600">Deactivated</span>
                         </>
                       ) : (
                         <>
-                          <CircleX className="h-4 w-4 text-red-500" aria-label="Inactive" />
-                          <span className="text-red-500">Inactive</span>
+                          <CircleCheck className="h-4 w-4 text-green-500" aria-label="Active" />
+                          <span className="text-green-500">Active</span>
                         </>
                       )}
                     </p>
@@ -639,6 +709,13 @@ export default function AccountPage() {
                         const isDelete = action.label === "Delete"
                         const isUpdate = action.label === "Update"
                         const isDeactivate = action.label === "Deactivate"
+                        const row = selectedAccountRow
+                        let manageDisabled = !row
+                        if (row && isUpdate) manageDisabled = !!row.is_deleted
+                        if (row && isDeactivate) {
+                          manageDisabled = !row.is_active || !!row.is_deleted
+                        }
+                        if (row && isDelete) manageDisabled = !!row.is_deleted
                         const handleClick = async () => {
                           if (!selectedCard || !accounts) return
 
@@ -678,7 +755,7 @@ export default function AccountPage() {
                                 title: "Account deactivated",
                                 description: result.message,
                               })
-                              void loadPageData()
+                              void loadPageData(accountListScope)
                             } else {
                               toast({
                                 title: "Failed to deactivate account",
@@ -696,7 +773,7 @@ export default function AccountPage() {
                                 title: "Account deleted",
                                 description: result.message,
                               })
-                              void loadPageData()
+                              void loadPageData(accountListScope)
                             } else {
                               toast({
                                 title: "Failed to delete account",
@@ -717,7 +794,8 @@ export default function AccountPage() {
                             type="button"
                             title={action.label}
                             onClick={handleClick}
-                            className={`flex h-9 items-center justify-center gap-1.5 rounded-lg border bg-muted/50 px-4 text-xs font-medium transition-colors ${colorClasses}`}
+                            disabled={manageDisabled}
+                            className={`flex h-9 items-center justify-center gap-1.5 rounded-lg border bg-muted/50 px-4 text-xs font-medium transition-colors disabled:pointer-events-none disabled:opacity-40 ${colorClasses}`}
                           >
                             <action.icon className="h-3.5 w-3.5" aria-hidden />
                             <span>{action.label}</span>

@@ -106,7 +106,7 @@ export async function createAccount(
     }
 
     const bankNameTrimmed = values.bankName?.trim() || null
-    console.log("User ID: ", user.id)
+
     const payload: AccountInsert & { bank_name?: string | null } = {
         user_id: user.id,
         account_type: values.accountType as "savings" | "current" | "checking" | "e_wallet" | "cash" | "other",
@@ -187,7 +187,12 @@ export async function updateAccount(values: UpdateAccountValues): Promise<Create
     return { success: true, data: { id: data.id } }
 }
 
-export async function getAccounts(): Promise<AccountRow[]> {
+/** Which rows to include when listing accounts (e.g. Account page filter). */
+export type AccountListScope = "active" | "non_deleted" | "all"
+
+export async function getAccounts(
+    scope: AccountListScope = "active"
+): Promise<AccountRow[]> {
     const supabase = await createClient()
 
     const {
@@ -199,19 +204,44 @@ export async function getAccounts(): Promise<AccountRow[]> {
         return []
     }
 
-    const { data, error } = await supabase
+    let q = supabase
         .from("account")
         .select("*")
         .eq("user_id", user.id)
-        .eq("is_deleted", false)
-        .eq("is_active", true)
-        .order("created_at", { ascending: false })
+
+    if (scope === "active") {
+        q = q.eq("is_deleted", false).eq("is_active", true)
+    } else if (scope === "non_deleted") {
+        q = q.eq("is_deleted", false)
+    }
+
+    const { data, error } = await q.order("created_at", { ascending: false })
 
     if (error) {
         throw new Error(GENERIC_ERROR_MESSAGE);
     }
 
     return data ?? []
+}
+
+/** Count of accounts that count toward the free-tier limit (active, not deleted). */
+export async function getActiveAccountCount(): Promise<number> {
+    const supabase = await createClient()
+    const {
+        data: { user },
+        error: authError,
+    } = await supabase.auth.getUser()
+    if (authError || !user) return 0
+
+    const { count, error } = await supabase
+        .from("account")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("is_deleted", false)
+        .eq("is_active", true)
+
+    if (error) return 0
+    return count ?? 0
 }
 
 export async function deactivateAccount(accountId: string): Promise<DeactivateAccountResult> {
