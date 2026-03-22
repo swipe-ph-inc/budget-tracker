@@ -12,6 +12,8 @@ import {
 } from "@/app/actions/transaction"
 import type { Database } from "@/lib/supabase/database.types"
 
+export type { AccountListScope } from "@/app/actions/accounts"
+
 type AccountRow = Database["public"]["Tables"]["account"]["Row"]
 
 export type AccountPageData = {
@@ -21,8 +23,6 @@ export type AccountPageData = {
   subscription: Awaited<ReturnType<typeof getActiveSubscription>>
   transactionsByAccountId: Record<string, AccountTransaction[]>
 }
-
-export type { AccountListScope }
 
 /**
  * Load all data needed for the Account page in one round-trip:
