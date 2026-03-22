@@ -58,6 +58,25 @@ export async function createAccount(
         return { success: false, error: "You must be signed in to add an account." }
     }
 
+    // account.user_id FK references user_profile(id), not auth.users alone. Ensure a row exists
+    // (e.g. user created before the on_auth_user_created trigger, or migrations not applied).
+    const { data: existingProfile } = await supabase
+        .from("user_profile")
+        .select("id")
+        .eq("id", user.id)
+        .maybeSingle()
+
+    if (!existingProfile) {
+        const { error: profileInsertError } = await supabase
+            .from("user_profile")
+            .insert({ id: user.id })
+
+        if (profileInsertError) {
+            console.error("[accounts] ensure user_profile failed", profileInsertError)
+            return { success: false, error: GENERIC_ERROR_MESSAGE }
+        }
+    }
+
     // Free plan: max 3 accounts. Pro (active subscription) = unlimited.
     const subscription = await getActiveSubscription()
     if (!subscription) {
@@ -87,6 +106,7 @@ export async function createAccount(
     }
 
     const bankNameTrimmed = values.bankName?.trim() || null
+    console.log("User ID: ", user.id)
     const payload: AccountInsert & { bank_name?: string | null } = {
         user_id: user.id,
         account_type: values.accountType as "savings" | "current" | "checking" | "e_wallet" | "cash" | "other",
