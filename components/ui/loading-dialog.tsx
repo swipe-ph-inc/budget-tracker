@@ -51,7 +51,7 @@ export function LoadingDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          "w-full max-w-[min(100%-2rem,20rem)] gap-6 border bg-background p-6 sm:max-w-sm",
+          "z-[100] w-full max-w-[min(100%-2rem,24rem)] gap-6 border bg-background p-6 sm:max-w-sm",
           "[&>button]:hidden",
           contentClassName,
         )}

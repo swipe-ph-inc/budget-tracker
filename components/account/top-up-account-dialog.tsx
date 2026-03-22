@@ -15,6 +15,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { SuccessMessage, ErrorMessage } from "@/components/ui/status-message"
+import { LoadingDialog } from "@/components/ui/loading-dialog"
+import { Spinner } from "@/components/ui/spinner"
 import { createTopUp } from "@/app/actions/transaction"
 
 /** Formats a numeric input string with locale thousands separators (e.g. 1234567.89 -> 1,234,567.89) */
@@ -64,14 +66,20 @@ export function TopUpAccountDialog({
 }: TopUpAccountDialogProps) {
   const [amount, setAmount] = useState("")
   const [note, setNote] = useState("")
-  const [status, setStatus] = useState<
-    { type: "success" | "error"; message: string } | null
+  /** Client-side validation only (shown in the form). */
+  const [formError, setFormError] = useState<string | null>(null)
+  /** Submit lifecycle: spinner + success/error live in LoadingDialog. */
+  const [submitOverlay, setSubmitOverlay] = useState<
+    | null
+    | { phase: "loading" }
+    | { phase: "success"; message: string }
+    | { phase: "error"; message: string }
   >(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleClose = (nextOpen: boolean) => {
     if (!nextOpen) {
-      setStatus(null)
+      setFormError(null)
+      setSubmitOverlay(null)
       setAmount("")
       setNote("")
     }
@@ -80,19 +88,17 @@ export function TopUpAccountDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setFormError(null)
 
     const cleaned = amount.replace(/,/g, "").trim()
     const parsed = parseFloat(cleaned)
 
     if (!cleaned || Number.isNaN(parsed) || parsed <= 0) {
-      setStatus({
-        type: "error",
-        message: "Please enter a valid amount greater than zero.",
-      })
+      setFormError("Please enter a valid amount greater than zero.")
       return
     }
 
-    setIsSubmitting(true)
+    setSubmitOverlay({ phase: "loading" })
     const result = await createTopUp({
       accountId,
       amount: parsed,
@@ -101,19 +107,60 @@ export function TopUpAccountDialog({
     })
 
     if (result.success) {
-      setStatus({ type: "success", message: "Top-up recorded successfully." })
+      setSubmitOverlay({
+        phase: "success",
+        message: "Top-up recorded successfully.",
+      })
       onCompleted?.()
       setTimeout(() => {
+        setSubmitOverlay(null)
         handleClose(false)
       }, 1200)
     } else {
-      setStatus({ type: "error", message: result.error })
+      setSubmitOverlay({ phase: "error", message: result.error })
     }
-    setIsSubmitting(false)
   }
 
+  const isSubmitting = submitOverlay !== null
+
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <>
+      <LoadingDialog
+        open={submitOverlay !== null}
+        onOpenChange={(next) => {
+          if (!next) setSubmitOverlay(null)
+        }}
+        preventDismiss={
+          submitOverlay?.phase === "loading" ||
+          submitOverlay?.phase === "success"
+        }
+        className="w-full"
+        contentClassName="max-w-[min(100%-2rem,22rem)]"
+      >
+        {submitOverlay?.phase === "loading" && (
+          <div className="flex w-full min-w-0 flex-col items-center gap-4 text-center">
+            <Spinner className="size-8 text-muted-foreground" />
+            <p className="text-sm font-medium">Recording top-up…</p>
+            <p className="text-xs text-muted-foreground">
+              Please keep this window open.
+            </p>
+          </div>
+        )}
+        {submitOverlay?.phase === "success" && (
+          <SuccessMessage
+            message={submitOverlay.message}
+            className="w-full min-w-0"
+          />
+        )}
+        {submitOverlay?.phase === "error" && (
+          <ErrorMessage
+            message={submitOverlay.message}
+            className="w-full min-w-0"
+          />
+        )}
+      </LoadingDialog>
+
+      <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="w-full max-w-[95vw] sm:max-w-[480px]">
         <DialogHeader>
           <DialogTitle>Top Up Account</DialogTitle>
@@ -122,15 +169,11 @@ export function TopUpAccountDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {status && (
-          <div className="sm:col-span-2">
-            {status.type === "success" ? (
-              <SuccessMessage message={status.message} />
-            ) : (
-              <ErrorMessage message={status.message} />
-            )}
-          </div>
-        )}
+        {formError ? (
+          <p className="text-sm text-destructive" role="alert">
+            {formError}
+          </p>
+        ) : null}
 
         <form
           className="grid grid-cols-1 gap-6 py-4"
@@ -189,6 +232,7 @@ export function TopUpAccountDialog({
         </form>
       </DialogContent>
     </Dialog>
+    </>
   )
 }
 
