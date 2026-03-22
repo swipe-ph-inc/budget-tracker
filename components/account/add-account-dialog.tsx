@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { Shuffle } from "lucide-react"
 import {
   Dialog,
@@ -150,10 +150,24 @@ export function AddAccountDialog({
   >(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const prevOpenRef = useRef(false)
   useEffect(() => {
-    prevOpenRef.current = open
-    if (open) setStatus(null)
+    if (open) {
+      setStatus(null)
+      return
+    }
+    // Clear all fields when the dialog closes so reopening starts fresh
+    setAccountName("")
+    setMaskedIdentifier("")
+    setBankName("")
+    setTotalBalance("")
+    setCurrency("PHP")
+    setAccountType("savings")
+    setCardType("none")
+    setCardNetworkUrl("")
+    setBackground("")
+    setHideContents(false)
+    setStatus(null)
+    setIsSubmitting(false)
   }, [open])
 
   const handleCancel = () => onOpenChange(false)
@@ -198,7 +212,6 @@ export function AddAccountDialog({
       onCompleted?.()
       setTimeout(() => {
         onOpenChange(false)
-        setStatus(null)
       }, 1500)
     } else {
       setStatus({ type: "error", message: result.error })
