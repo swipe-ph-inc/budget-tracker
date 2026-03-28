@@ -129,6 +129,44 @@ export type Database = {
           },
         ]
       }
+      ai_usage: {
+        Row: {
+          chat_messages_used: number
+          created_at: string
+          id: string
+          month_start: string
+          receipt_scans_used: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          chat_messages_used?: number
+          created_at?: string
+          id?: string
+          month_start?: string
+          receipt_scans_used?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          chat_messages_used?: number
+          created_at?: string
+          id?: string
+          month_start?: string
+          receipt_scans_used?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       budget: {
         Row: {
           amount: number
@@ -1456,6 +1494,14 @@ export type Database = {
       }
       generate_due_notifications: {
         Args: { days_before?: number }
+        Returns: undefined
+      }
+      increment_ai_chat_usage: {
+        Args: { p_month: string; p_user_id: string }
+        Returns: undefined
+      }
+      increment_ai_receipt_usage: {
+        Args: { p_month: string; p_user_id: string }
         Returns: undefined
       }
     }

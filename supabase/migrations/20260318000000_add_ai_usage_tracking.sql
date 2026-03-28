@@ -1,6 +1,11 @@
 -- AI Usage Tracking
 -- Tracks per-user monthly usage of AI features (chat messages and receipt scans).
 -- Limits: Free = 10/month, Pro = unlimited (enforced in application layer).
+--
+-- Apply to remote: from repo root, `supabase link` then `supabase db push`
+-- (requires this migration to run before `pnpm db:types` will include `ai_usage`).
+
+CREATE EXTENSION IF NOT EXISTS moddatetime;
 
 CREATE TABLE public.ai_usage (
   id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -13,13 +18,14 @@ CREATE TABLE public.ai_usage (
   UNIQUE (user_id, month_start)
 );
 
--- Auto-update updated_at
+-- Auto-update updated_at (EXECUTE FUNCTION — Postgres 14+ / Supabase)
 CREATE TRIGGER ai_usage_updated_at
   BEFORE UPDATE ON public.ai_usage
-  FOR EACH ROW EXECUTE PROCEDURE moddatetime(updated_at);
+  FOR EACH ROW
+  EXECUTE FUNCTION moddatetime(updated_at);
 
 -- Index for fast per-user monthly lookups
-CREATE INDEX idx_ai_usage_user_month ON public.ai_usage (user_id, month_start);
+CREATE INDEX IF NOT EXISTS idx_ai_usage_user_month ON public.ai_usage (user_id, month_start);
 
 -- RLS
 ALTER TABLE public.ai_usage ENABLE ROW LEVEL SECURITY;
