@@ -24,9 +24,10 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { AppLogo } from "@/components/app-logo"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 
-const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed"
+/** Persisted key — shared with `DashboardShell` for main-content margin. */
+export const SIDEBAR_COLLAPSED_STORAGE_KEY = "sidebar-collapsed"
 
 type SidebarItem = {
   label: string
@@ -62,33 +63,21 @@ const sidebarItems: SidebarItem[] = [
 type AppSidebarProps = {
   /** When true, hides the “Get Pro” promo (user already has an active paid subscription). */
   hasActiveSubscription?: boolean
+  /** Desktop rail width — controlled by `DashboardShell` so main margin stays in sync. */
+  collapsed: boolean
+  onCollapsedChange: (collapsed: boolean) => void
 }
 
-export function AppSidebar({ hasActiveSubscription = false }: AppSidebarProps) {
+export function AppSidebar({
+  hasActiveSubscription = false,
+  collapsed,
+  onCollapsedChange,
+}: AppSidebarProps) {
   const pathname = usePathname()
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(
     pathname.startsWith("/dashboard/payments") ? "Payments" : null
   )
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [collapsed, setCollapsed] = useState(false)
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY)
-      if (stored !== null) setCollapsed(JSON.parse(stored))
-    } catch {
-      // ignore
-    }
-  }, [])
-
-  const setCollapsedPersisted = (value: boolean) => {
-    setCollapsed(value)
-    try {
-      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, JSON.stringify(value))
-    } catch {
-      // ignore
-    }
-  }
 
   const sidebarContent = (opts?: { collapsed?: boolean; onToggleCollapsed?: () => void }) => {
     const isCollapsed = opts?.collapsed === true
@@ -271,7 +260,7 @@ export function AppSidebar({ hasActiveSubscription = false }: AppSidebarProps) {
         <div className="border-t border-sidebar-border p-2">
           <button
             type="button"
-            onClick={opts.onToggleCollapsed}
+            onClick={() => opts.onToggleCollapsed?.()}
             className="flex w-full items-center justify-center rounded-lg p-2 text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
@@ -325,7 +314,7 @@ export function AppSidebar({ hasActiveSubscription = false }: AppSidebarProps) {
       >
         {sidebarContent({
           collapsed,
-          onToggleCollapsed: () => setCollapsedPersisted(!collapsed),
+          onToggleCollapsed: () => onCollapsedChange(!collapsed),
         })}
       </aside>
     </>

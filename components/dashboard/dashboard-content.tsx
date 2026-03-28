@@ -70,7 +70,7 @@ export function DashboardContent() {
       <div className="flex flex-1 flex-col lg:flex-row gap-5 p-4 lg:p-6">
         <div className="flex w-full lg:w-[280px] shrink-0 flex-col gap-5">
           <BalanceCard initialData={{ accounts: data.accounts, profile: data.profile }} />
-          <DailyLimit />
+          {/* <DailyLimit /> */}
           <SavingPlans initialData={data.savingPlans} />
         </div>
         <div className="flex flex-1 flex-col gap-5">
