@@ -14,44 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      ai_usage: {
-        Row: {
-          id: string
-          user_id: string
-          month_start: string
-          chat_messages_used: number
-          receipt_scans_used: number
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          month_start?: string
-          chat_messages_used?: number
-          receipt_scans_used?: number
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          month_start?: string
-          chat_messages_used?: number
-          receipt_scans_used?: number
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ai_usage_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "user_profile"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       account: {
         Row: {
           account_type: Database["public"]["Enums"]["account_type_enum"]
@@ -1469,14 +1431,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      increment_ai_chat_usage: {
-        Args: { p_user_id: string; p_month: string }
-        Returns: undefined
-      }
-      increment_ai_receipt_usage: {
-        Args: { p_user_id: string; p_month: string }
-        Returns: undefined
-      }
       activity_insert: {
         Args: {
           p_activity_type: Database["public"]["Enums"]["activity_type_enum"]

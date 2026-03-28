@@ -59,7 +59,12 @@ const sidebarItems: SidebarItem[] = [
   // { label: "Insights", icon: BarChart3, href: "/dashboard/insights" },
 ]
 
-export function AppSidebar() {
+type AppSidebarProps = {
+  /** When true, hides the “Get Pro” promo (user already has an active paid subscription). */
+  hasActiveSubscription?: boolean
+}
+
+export function AppSidebar({ hasActiveSubscription = false }: AppSidebarProps) {
   const pathname = usePathname()
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(
     pathname.startsWith("/dashboard/payments") ? "Payments" : null
@@ -231,33 +236,35 @@ export function AppSidebar() {
         </ul>
       </nav>
 
-      {/* Get Pro CTA */}
-      <div className={cn("p-4", isCollapsed && "p-2")}>
-        {isCollapsed ? (
-          <Link
-            href="/dashboard/subscription"
-            onClick={() => setMobileOpen(false)}
-            className="flex items-center justify-center rounded-lg bg-primary/10 p-2.5 text-primary transition-colors hover:bg-primary/20"
-            title="Get Pro"
-          >
-            <Lock className="h-5 w-5" />
-          </Link>
-        ) : (
-          <div className="rounded-xl bg-primary/10 p-4">
-            <Lock className="mb-2 h-6 w-6 text-primary" />
-            <p className="text-xs leading-relaxed text-foreground">
-              Gain full access to your finances with detailed analytics and graphs
-            </p>
+      {/* Get Pro CTA — only for users without an active subscription */}
+      {!hasActiveSubscription && (
+        <div className={cn("p-4", isCollapsed && "p-2")}>
+          {isCollapsed ? (
             <Link
               href="/dashboard/subscription"
               onClick={() => setMobileOpen(false)}
-              className="mt-3 flex w-full items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+              className="flex items-center justify-center rounded-lg bg-primary/10 p-2.5 text-primary transition-colors hover:bg-primary/20"
+              title="Get Pro"
             >
-              Get Pro
+              <Lock className="h-5 w-5" />
             </Link>
-          </div>
-        )}
-      </div>
+          ) : (
+            <div className="rounded-xl bg-primary/10 p-4">
+              <Lock className="mb-2 h-6 w-6 text-primary" />
+              <p className="text-xs leading-relaxed text-foreground">
+                Gain full access to your finances with detailed analytics and graphs
+              </p>
+              <Link
+                href="/dashboard/subscription"
+                onClick={() => setMobileOpen(false)}
+                className="mt-3 flex w-full items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                Get Pro
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Desktop collapse toggle */}
       {opts?.onToggleCollapsed && (
