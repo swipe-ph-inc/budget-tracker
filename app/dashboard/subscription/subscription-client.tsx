@@ -43,8 +43,8 @@ const plans = [
     id: "pro",
     name: "Pro",
     icon: Crown,
-    monthlyPrice: 4.99,
-    yearlyPrice: 49.99,
+    monthlyPrice: 6.99,
+    yearlyPrice: 59.99,
     description: "Full financial control with advanced analytics and unlimited tools.",
     features: [
       "Everything in Free",
@@ -52,7 +52,6 @@ const plans = [
       "Full transaction analytics",
       "Unlimited saving plans",
       "Investment tracking",
-      "AI-powered insights",
       "Priority support",
       "Export reports (CSV, PDF)",
     ],
@@ -259,7 +258,7 @@ export function SubscriptionClient({ subscription }: { subscription: ActiveSubsc
               >
                 Yearly
                 <span className="ml-1.5 rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold text-accent-foreground">
-                  Save 17%
+                  Save 29%
                 </span>
               </button>
             </div>
@@ -371,7 +370,6 @@ export function SubscriptionClient({ subscription }: { subscription: ActiveSubsc
                     { feature: "Transaction history", free: "30 days", pro: "Full" },
                     { feature: "Saving plans", free: "1", pro: "Unlimited" },
                     { feature: "Investment tracking", free: false, pro: true },
-                    { feature: "AI insights", free: false, pro: true },
                     { feature: "Export reports", free: false, pro: true },
                     { feature: "Support", free: "Email", pro: "Priority" },
                   ].map((row, i) => (

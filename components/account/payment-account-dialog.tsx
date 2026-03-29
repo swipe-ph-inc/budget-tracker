@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import {
   Dialog,
   DialogContent,
@@ -23,9 +23,7 @@ import {
 import { SuccessMessage, ErrorMessage } from "@/components/ui/status-message"
 import { createPayment } from "@/app/actions/transaction"
 import { getMerchantsWithCategories, type MerchantWithCategory } from "@/app/actions/merchants"
-import { AiBudgetCheckDialog, type PaymentCheckData } from "@/components/ai/ai-budget-check-dialog"
-import { Loader2, Paperclip, X, CheckCircle2 } from "lucide-react"
-import type { ReceiptData } from "@/app/api/ai/read-receipt/route"
+import { Loader2 } from "lucide-react"
 
 /** Formats a numeric input string with locale thousands separators (e.g. 1234567.89 -> 1,234,567.89) */
 function formatAmountInput(value: string): string {
@@ -80,20 +78,8 @@ export function PaymentAccountDialog({
   const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Receipt upload state
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [receiptFile, setReceiptFile] = useState<File | null>(null)
-  const [receiptLoading, setReceiptLoading] = useState(false)
-  const [receiptError, setReceiptError] = useState<string | null>(null)
-  const [receiptRead, setReceiptRead] = useState(false)
-
-  // AI budget check state
-  const [aiCheckOpen, setAiCheckOpen] = useState(false)
-  const [pendingCheckData, setPendingCheckData] = useState<PaymentCheckData | null>(null)
-
   const fromAccount = accounts.find((a) => a.id === fromAccountId)
   const currency = fromAccount?.currency ?? "PHP"
-  const selectedMerchant = merchants.find((m) => m.id === merchantId)
 
   // Reset form on open
   useEffect(() => {
@@ -105,11 +91,6 @@ export function PaymentAccountDialog({
       setNote("")
       setFeeAmount("")
       setDueDate("")
-      setReceiptFile(null)
-      setReceiptError(null)
-      setReceiptRead(false)
-      setAiCheckOpen(false)
-      setPendingCheckData(null)
     }
   }, [open, selectedAccountId])
 
@@ -131,68 +112,10 @@ export function PaymentAccountDialog({
       setNote("")
       setFeeAmount("")
       setDueDate("")
-      setReceiptFile(null)
-      setReceiptError(null)
-      setReceiptRead(false)
-      setAiCheckOpen(false)
-      setPendingCheckData(null)
     }
     onOpenChange(nextOpen)
   }
 
-  // --- Receipt upload handler ---
-  const handleReceiptChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    setReceiptFile(file)
-    setReceiptError(null)
-    setReceiptRead(false)
-    setReceiptLoading(true)
-
-    try {
-      const formData = new FormData()
-      formData.append("file", file)
-
-      const res = await fetch("/api/ai/read-receipt", { method: "POST", body: formData })
-      const data: ReceiptData & { error?: string; limitReached?: boolean } = await res.json()
-
-      if (!res.ok || data.error) {
-        setReceiptError(data.error ?? "Could not read receipt. Please fill fields manually.")
-        setReceiptLoading(false)
-        return
-      }
-
-      // Auto-fill amount
-      if (data.amount !== null) {
-        setAmount(formatAmountInput(String(data.amount)))
-      }
-
-      // Auto-select merchant by name match (case-insensitive)
-      if (data.merchant) {
-        const match = merchants.find(
-          (m) => m.name.toLowerCase() === data.merchant!.toLowerCase()
-        )
-        if (match) setMerchantId(match.id)
-      }
-
-      setReceiptRead(true)
-    } catch {
-      setReceiptError("Could not read receipt. Please fill fields manually.")
-    } finally {
-      setReceiptLoading(false)
-      if (fileInputRef.current) fileInputRef.current.value = ""
-    }
-  }
-
-  const removeReceipt = () => {
-    setReceiptFile(null)
-    setReceiptError(null)
-    setReceiptRead(false)
-    if (fileInputRef.current) fileInputRef.current.value = ""
-  }
-
-  // --- Form submit — intercept and show AI check ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -224,23 +147,6 @@ export function PaymentAccountDialog({
       return
     }
 
-    // Open AI budget check dialog — actual save happens in onConfirm
-    setPendingCheckData({
-      amount: parsed,
-      currency,
-      merchant: selectedMerchant?.name ?? "Unknown",
-      category: selectedMerchant?.category_name ?? "Other",
-    })
-    setAiCheckOpen(true)
-  }
-
-  // --- Called by AiBudgetCheckDialog when user clicks "Proceed Anyway" ---
-  const handleAiConfirm = async () => {
-    const cleaned = amount.replace(/,/g, "").trim()
-    const parsed = parseFloat(cleaned)
-    const cleanedFee = feeAmount.replace(/,/g, "").trim()
-    const parsedFee = cleanedFee ? parseFloat(cleanedFee) : 0
-
     setIsSubmitting(true)
     const result = await createPayment({
       fromAccountId,
@@ -252,9 +158,7 @@ export function PaymentAccountDialog({
       feeCurrency: parsedFee > 0 ? currency : undefined,
       dueDate: dueDate.trim() || undefined,
     })
-
     setIsSubmitting(false)
-    setAiCheckOpen(false)
 
     if (result.success) {
       setStatus({ type: "success", message: "Payment completed successfully." })
@@ -265,259 +169,189 @@ export function PaymentAccountDialog({
     }
   }
 
-  // --- Called by AiBudgetCheckDialog when user clicks "Cancel Payment" ---
-  const handleAiCancel = () => {
-    setAiCheckOpen(false)
-    // Form stays open with data intact
-  }
-
   const hasAccounts = accounts.length >= 1
   const hasMerchants = merchants.length >= 1
 
   return (
-    <>
-      <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent className="w-full max-w-[95vw] sm:max-w-[520px]">
-          <DialogHeader>
-            <DialogTitle>Make a Payment</DialogTitle>
-            <DialogDescription>
-              Pay a merchant from your account. The amount will be deducted immediately.
-            </DialogDescription>
-          </DialogHeader>
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="w-full max-w-[95vw] sm:max-w-[520px]">
+        <DialogHeader>
+          <DialogTitle>Make a Payment</DialogTitle>
+          <DialogDescription>
+            Pay a merchant from your account. The amount will be deducted immediately.
+          </DialogDescription>
+        </DialogHeader>
 
-          {!hasAccounts && (
-            <p className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
-              Add an account to make payments.
-            </p>
-          )}
+        {!hasAccounts && (
+          <p className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+            Add an account to make payments.
+          </p>
+        )}
 
-          {hasAccounts && !hasMerchants && !merchantsLoading && (
-            <p className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
-              No merchants found. Add merchants to make payments.
-            </p>
-          )}
+        {hasAccounts && !hasMerchants && !merchantsLoading && (
+          <p className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+            No merchants found. Add merchants to make payments.
+          </p>
+        )}
 
-          {status && (
-            <div className="sm:col-span-2">
-              {status.type === "success" ? (
-                <SuccessMessage message={status.message} />
-              ) : (
-                <ErrorMessage message={status.message} />
-              )}
-            </div>
-          )}
+        {status && (
+          <div className="sm:col-span-2">
+            {status.type === "success" ? (
+              <SuccessMessage message={status.message} />
+            ) : (
+              <ErrorMessage message={status.message} />
+            )}
+          </div>
+        )}
 
-          <form className="grid grid-cols-1 gap-5 py-2 sm:grid-cols-2" onSubmit={handleSubmit}>
+        <form className="grid grid-cols-1 gap-5 py-2 sm:grid-cols-2" onSubmit={handleSubmit}>
 
-            {/* Receipt Upload */}
-            <div className="sm:col-span-2">
-              <Label className="mb-2 block">Upload Receipt (optional)</Label>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                onChange={handleReceiptChange}
-              />
-              {!receiptFile ? (
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-secondary/30 px-4 py-4 text-sm text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground"
-                >
-                  <Paperclip className="h-4 w-4" />
-                  <span>Tap or drag to upload receipt</span>
-                  <span className="text-xs opacity-60">JPG, PNG, WebP</span>
-                </button>
-              ) : (
-                <div className="flex items-center gap-3 rounded-lg border border-border bg-secondary/30 px-4 py-3">
-                  {receiptLoading ? (
-                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" />
-                  ) : receiptRead ? (
-                    <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" />
-                  ) : (
-                    <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">{receiptFile.name}</p>
-                    {receiptLoading && (
-                      <p className="text-xs text-muted-foreground">Reading receipt…</p>
-                    )}
-                    {receiptRead && (
-                      <p className="text-xs text-green-600 dark:text-green-400">✅ Fields auto-filled from receipt</p>
-                    )}
-                    {receiptError && (
-                      <p className="text-xs text-destructive">{receiptError}</p>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={removeReceipt}
-                    className="shrink-0 rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* From Account */}
-            <div className="grid gap-2 sm:col-span-2">
-              <Label htmlFor="payment-from">From Account</Label>
-              <Select
-                value={fromAccountId}
-                onValueChange={setFromAccountId}
-                disabled={!hasAccounts}
-              >
-                <SelectTrigger id="payment-from">
-                  <SelectValue placeholder="Select account to pay from" />
-                </SelectTrigger>
-                <SelectContent>
-                  {accounts.map((acc) => {
-                    const balanceStr = new Intl.NumberFormat(undefined, {
-                      style: "currency",
-                      currency: acc.currency,
-                      minimumFractionDigits: 2,
-                    }).format(acc.balance)
-                    return (
-                      <SelectItem key={acc.id} value={acc.id}>
-                        {acc.name} — {balanceStr}
-                      </SelectItem>
-                    )
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Merchant */}
-            <div className="grid gap-2 sm:col-span-2">
-              <Label htmlFor="payment-merchant">Pay To (Merchant)</Label>
-              <Select
-                value={merchantId}
-                onValueChange={setMerchantId}
-                disabled={!hasMerchants || merchantsLoading}
-              >
-                <SelectTrigger id="payment-merchant">
-                  <SelectValue
-                    placeholder={merchantsLoading ? "Loading merchants..." : "Select merchant"}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {merchants.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.name}
+          {/* From Account */}
+          <div className="grid gap-2 sm:col-span-2">
+            <Label htmlFor="payment-from">From Account</Label>
+            <Select
+              value={fromAccountId}
+              onValueChange={setFromAccountId}
+              disabled={!hasAccounts}
+            >
+              <SelectTrigger id="payment-from">
+                <SelectValue placeholder="Select account to pay from" />
+              </SelectTrigger>
+              <SelectContent>
+                {accounts.map((acc) => {
+                  const balanceStr = new Intl.NumberFormat(undefined, {
+                    style: "currency",
+                    currency: acc.currency,
+                    minimumFractionDigits: 2,
+                  }).format(acc.balance)
+                  return (
+                    <SelectItem key={acc.id} value={acc.id}>
+                      {acc.name} — {balanceStr}
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                  )
+                })}
+              </SelectContent>
+            </Select>
+          </div>
 
-            {/* Amount */}
-            <div className="grid gap-2 sm:col-span-2">
-              <Label htmlFor="payment-amount">Amount</Label>
-              <div className="flex overflow-hidden rounded-md border border-input focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
-                <Input
-                  id="payment-amount"
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="0.00"
-                  value={amount}
-                  onChange={(e) => setAmount(formatAmountInput(e.target.value))}
-                  disabled={!fromAccountId || !merchantId}
-                  className="min-w-0 border-0 rounded-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+          {/* Merchant */}
+          <div className="grid gap-2 sm:col-span-2">
+            <Label htmlFor="payment-merchant">Pay To (Merchant)</Label>
+            <Select
+              value={merchantId}
+              onValueChange={setMerchantId}
+              disabled={!hasMerchants || merchantsLoading}
+            >
+              <SelectTrigger id="payment-merchant">
+                <SelectValue
+                  placeholder={merchantsLoading ? "Loading merchants..." : "Select merchant"}
                 />
-                <div className="flex h-10 shrink-0 items-center px-3 text-xs font-medium text-muted-foreground">
-                  {currency}
-                </div>
-              </div>
-            </div>
+              </SelectTrigger>
+              <SelectContent>
+                {merchants.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-            {/* Fee */}
-            <div className="grid gap-2 sm:col-span-2">
-              <Label htmlFor="payment-fee">Fee Amount (optional)</Label>
-              <div className="flex overflow-hidden rounded-md border border-input focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
-                <Input
-                  id="payment-fee"
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="0.00"
-                  value={feeAmount}
-                  onChange={(e) => setFeeAmount(formatAmountInput(e.target.value))}
-                  className="min-w-0 border-0 rounded-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
-                />
-                <div className="flex h-10 shrink-0 items-center px-3 text-xs font-medium text-muted-foreground">
-                  {currency}
-                </div>
-              </div>
-            </div>
-
-            {/* Due Date */}
-            <div className="grid gap-2 sm:col-span-2">
-              <Label htmlFor="payment-due">Due Date (optional)</Label>
+          {/* Amount */}
+          <div className="grid gap-2 sm:col-span-2">
+            <Label htmlFor="payment-amount">Amount</Label>
+            <div className="flex overflow-hidden rounded-md border border-input focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
               <Input
-                id="payment-due"
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
+                id="payment-amount"
+                type="text"
+                inputMode="decimal"
+                placeholder="0.00"
+                value={amount}
+                onChange={(e) => setAmount(formatAmountInput(e.target.value))}
+                disabled={!fromAccountId || !merchantId}
+                className="min-w-0 border-0 rounded-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
               />
+              <div className="flex h-10 shrink-0 items-center px-3 text-xs font-medium text-muted-foreground">
+                {currency}
+              </div>
             </div>
+          </div>
 
-            {/* Note */}
-            <div className="grid gap-2 sm:col-span-2">
-              <Label htmlFor="payment-note">Note (optional)</Label>
-              <Textarea
-                id="payment-note"
-                placeholder="e.g. Monthly subscription, invoice #123"
-                rows={3}
-                maxLength={255}
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
+          {/* Fee */}
+          <div className="grid gap-2 sm:col-span-2">
+            <Label htmlFor="payment-fee">Fee Amount (optional)</Label>
+            <div className="flex overflow-hidden rounded-md border border-input focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+              <Input
+                id="payment-fee"
+                type="text"
+                inputMode="decimal"
+                placeholder="0.00"
+                value={feeAmount}
+                onChange={(e) => setFeeAmount(formatAmountInput(e.target.value))}
+                className="min-w-0 border-0 rounded-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
               />
+              <div className="flex h-10 shrink-0 items-center px-3 text-xs font-medium text-muted-foreground">
+                {currency}
+              </div>
             </div>
+          </div>
 
-            <DialogFooter className="mt-2 flex flex-col gap-2 sm:col-span-2 sm:flex-row sm:justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => handleClose(false)}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={
-                  isSubmitting ||
-                  receiptLoading ||
-                  !hasAccounts ||
-                  !hasMerchants ||
-                  !fromAccountId ||
-                  !merchantId ||
-                  !amount
-                }
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Processing…
-                  </>
-                ) : (
-                  "Submit & Check →"
-                )}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+          {/* Due Date */}
+          <div className="grid gap-2 sm:col-span-2">
+            <Label htmlFor="payment-due">Due Date (optional)</Label>
+            <Input
+              id="payment-due"
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+            />
+          </div>
 
-      {/* AI Budget Check dialog — rendered outside main dialog to avoid nesting issues */}
-      <AiBudgetCheckDialog
-        open={aiCheckOpen}
-        onOpenChange={setAiCheckOpen}
-        paymentData={pendingCheckData}
-        onConfirm={handleAiConfirm}
-        onCancel={handleAiCancel}
-      />
-    </>
+          {/* Note */}
+          <div className="grid gap-2 sm:col-span-2">
+            <Label htmlFor="payment-note">Note (optional)</Label>
+            <Textarea
+              id="payment-note"
+              placeholder="e.g. Monthly subscription, invoice #123"
+              rows={3}
+              maxLength={255}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
+          </div>
+
+          <DialogFooter className="mt-2 flex flex-col gap-2 sm:col-span-2 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleClose(false)}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={
+                isSubmitting ||
+                !hasAccounts ||
+                !hasMerchants ||
+                !fromAccountId ||
+                !merchantId ||
+                !amount
+              }
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processing…
+                </>
+              ) : (
+                "Submit Payment"
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }
