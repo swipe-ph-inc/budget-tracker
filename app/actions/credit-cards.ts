@@ -115,7 +115,8 @@ export async function getCreditCards(): Promise<CreditCardRow[]> {
     .order("created_at", { ascending: false })
 
   if (error) {
-    throw new Error(GENERIC_ERROR_MESSAGE)
+    console.error('[credit-cards] getCreditCards failed', error)
+    return []
   }
 
   const cards = rows ?? []

@@ -99,10 +99,16 @@ export async function createAccount(
     if (!name) {
         return { success: false, error: "Account name is required." }
     }
+    if (name.length > 100) {
+        return { success: false, error: "Account name must be 100 characters or less." }
+    }
 
     const maskedIdentifier = values.maskedIdentifier?.trim()
     if (!maskedIdentifier) {
-        return { success: false, error: "Masked Identifie is required." }
+        return { success: false, error: "Masked identifier is required." }
+    }
+    if (maskedIdentifier.length > 50) {
+        return { success: false, error: "Masked identifier must be 50 characters or less." }
     }
 
     const bankNameTrimmed = values.bankName?.trim() || null
@@ -135,15 +141,34 @@ export async function createAccount(
     return { success: true, data: { id: data.id } }
 }
 
+type AccountUpdateFields = {
+    name?: string
+    balance?: number
+    account_type?: AccountRow["account_type"]
+    masked_identifier?: string
+    currency?: string
+    bank_name?: string | null
+}
+
 export async function updateAccount(values: UpdateAccountValues): Promise<CreateAccountResult> {
     const supabase = await createClient()
+
+    const {
+        data: { user },
+        error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+        return { success: false, error: "You must be signed in to update an account." }
+    }
+
     const { accountId } = values
     if (!accountId) {
         return { success: false, error: "Account ID is required." }
     }
 
     // Build update payload with only non-undefined fields
-    const updateFields: any = {}
+    const updateFields: AccountUpdateFields = {}
 
     if (typeof values.accountName === "string") {
         updateFields.name = values.accountName.trim()
@@ -218,7 +243,8 @@ export async function getAccounts(
     const { data, error } = await q.order("created_at", { ascending: false })
 
     if (error) {
-        throw new Error(GENERIC_ERROR_MESSAGE);
+        console.error('[accounts] getAccounts failed', error)
+        return []
     }
 
     return data ?? []
@@ -246,10 +272,21 @@ export async function getActiveAccountCount(): Promise<number> {
 
 export async function deactivateAccount(accountId: string): Promise<DeactivateAccountResult> {
     const supabase = await createClient();
+
+    const {
+        data: { user },
+        error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+        return { success: false, error: "You must be signed in to deactivate an account." }
+    }
+
     const { data, error } = await supabase
         .from("account")
         .update({ is_active: false })
         .eq("id", accountId)
+        .eq("user_id", user.id)
         .select("id, is_active")
         .single();
 
@@ -258,15 +295,26 @@ export async function deactivateAccount(accountId: string): Promise<DeactivateAc
         return { success: false, error: 'Something went wrong. Please try again.' };
     }
 
-    return { success: true, message: "Account successfully Deactivated!!" };
+    return { success: true, message: "Account successfully deactivated." };
 }
 
 export async function deleteAccount(accountId: string): Promise<DeactivateAccountResult> {
     const supabase = await createClient();
+
+    const {
+        data: { user },
+        error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+        return { success: false, error: "You must be signed in to delete an account." }
+    }
+
     const { data, error } = await supabase
         .from("account")
         .update({ is_deleted: true })
         .eq("id", accountId)
+        .eq("user_id", user.id)
         .select("id, is_deleted")
         .single();
 
@@ -275,5 +323,5 @@ export async function deleteAccount(accountId: string): Promise<DeactivateAccoun
         return { success: false, error: 'Something went wrong. Please try again.' };
     }
 
-    return { success: true, message: "Account successfully Deactivated!!" };
+    return { success: true, message: "Account successfully deleted." };
 }

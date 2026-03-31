@@ -24,13 +24,17 @@ export type MerchantWithCategory = {
 
 export async function getMerchants(): Promise<MerchantOption[]> {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
   const { data, error } = await supabase
     .from("merchant")
     .select("id, name")
     .order("name", { ascending: true })
 
   if (error) {
-    throw new Error(GENERIC_ERROR_MESSAGE)
+    console.error('[merchants] getMerchants failed', error)
+    return []
   }
 
   return data ?? []
@@ -44,9 +48,15 @@ export async function registerMerchantCategory(
   name: string
 ): Promise<RegisterMerchantCategoryResult> {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: "You must be signed in." }
+
   const trimmedName = name?.trim()
   if (!trimmedName) {
     return { success: false, error: "Category name is required." }
+  }
+  if (trimmedName.length > 100) {
+    return { success: false, error: "Category name must be 100 characters or less." }
   }
 
   const { data, error } = await supabase
@@ -75,9 +85,15 @@ export async function updateMerchantCategory(
   name: string
 ): Promise<UpdateMerchantCategoryResult> {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: "You must be signed in." }
+
   const trimmedName = name?.trim()
   if (!trimmedName) {
     return { success: false, error: "Category name is required." }
+  }
+  if (trimmedName.length > 100) {
+    return { success: false, error: "Category name must be 100 characters or less." }
   }
 
   const { error } = await supabase
@@ -104,6 +120,8 @@ export async function deleteMerchantCategory(
   id: string
 ): Promise<DeleteMerchantCategoryResult> {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: "You must be signed in." }
 
   const { error } = await supabase.from("merchant_category").delete().eq("id", id)
 
@@ -123,13 +141,17 @@ export async function deleteMerchantCategory(
 
 export async function getMerchantCategories(): Promise<MerchantCategoryOption[]> {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
   const { data, error } = await supabase
     .from("merchant_category")
     .select("id, name")
     .order("name", { ascending: true })
 
   if (error) {
-    throw new Error(GENERIC_ERROR_MESSAGE)
+    console.error('[merchants] getMerchantCategories failed', error)
+    return []
   }
 
   return data ?? []
@@ -137,13 +159,17 @@ export async function getMerchantCategories(): Promise<MerchantCategoryOption[]>
 
 export async function getMerchantsWithCategories(): Promise<MerchantWithCategory[]> {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
   const { data, error } = await supabase
     .from("merchant")
     .select("id, name, category_id, created_at, merchant_category(name)")
     .order("name", { ascending: true })
 
   if (error) {
-    throw new Error(GENERIC_ERROR_MESSAGE)
+    console.error('[merchants] getMerchantsWithCategories failed', error)
+    return []
   }
 
   return (data ?? []).map((row) => ({
@@ -164,9 +190,15 @@ export async function registerMerchant(
   categoryId: string
 ): Promise<RegisterMerchantResult> {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: "You must be signed in." }
+
   const trimmedName = name?.trim()
   if (!trimmedName) {
     return { success: false, error: "Merchant name is required." }
+  }
+  if (trimmedName.length > 100) {
+    return { success: false, error: "Merchant name must be 100 characters or less." }
   }
   if (!categoryId?.trim()) {
     return { success: false, error: "Merchant category is required." }
@@ -196,9 +228,15 @@ export async function updateMerchant(
   categoryId: string
 ): Promise<UpdateMerchantResult> {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: "You must be signed in." }
+
   const trimmedName = name?.trim()
   if (!trimmedName) {
     return { success: false, error: "Merchant name is required." }
+  }
+  if (trimmedName.length > 100) {
+    return { success: false, error: "Merchant name must be 100 characters or less." }
   }
   if (!categoryId?.trim()) {
     return { success: false, error: "Merchant category is required." }
@@ -223,6 +261,8 @@ export type DeleteMerchantResult =
 
 export async function deleteMerchant(id: string): Promise<DeleteMerchantResult> {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: "You must be signed in." }
 
   const { error } = await supabase.from("merchant").delete().eq("id", id)
 

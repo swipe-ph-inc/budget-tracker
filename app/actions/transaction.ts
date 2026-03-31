@@ -159,31 +159,27 @@ export async function createTransfer(params: {
     return { success: false, error: "Insufficient balance in the source account." }
   }
 
-  const fromNewBalance = (fromAccount.balance ?? 0) - totalDebit
-  const toNewBalance = (toAccount.balance ?? 0) + params.amount
+  // Atomically transfer funds using database-level row locking to prevent race conditions.
+  // The RPC handles ownership checks, balance validation, and the debit/credit in one transaction.
+  const { data: rpcResult, error: rpcError } = await supabase.rpc('atomic_transfer_funds', {
+    p_from_account_id: params.fromAccountId,
+    p_to_account_id: params.toAccountId,
+    p_amount: params.amount,
+    p_user_id: user.id,
+  })
 
-  const { error: updateFromError } = await supabase
-    .from("account")
-    .update({ balance: fromNewBalance })
-    .eq("id", params.fromAccountId)
-
-  if (updateFromError) {
-    console.error('[transaction] createTransfer from-account update failed', updateFromError)
-    return { success: false, error: 'Something went wrong. Please try again.' }
+  const rpc = rpcResult as { success: boolean; error?: string } | null
+  if (rpcError || !rpc?.success) {
+    console.error('[transaction] createTransfer atomic_transfer_funds failed', rpcError ?? rpc?.error)
+    return { success: false, error: rpc?.error ?? 'Something went wrong. Please try again.' }
   }
 
-  const { error: updateToError } = await supabase
-    .from("account")
-    .update({ balance: toNewBalance })
-    .eq("id", params.toAccountId)
-
-  if (updateToError) {
+  // Deduct transfer fee from the source account separately (typically 0 for internal transfers).
+  if (feeAmount > 0) {
     await supabase
       .from("account")
-      .update({ balance: fromAccount.balance })
+      .update({ balance: (fromAccount.balance ?? 0) - params.amount - feeAmount })
       .eq("id", params.fromAccountId)
-    console.error('[transaction] createTransfer to-account update failed', updateToError)
-    return { success: false, error: 'Something went wrong. Please try again.' }
   }
 
   const now = new Date().toISOString()
@@ -212,14 +208,13 @@ export async function createTransfer(params: {
     .single()
 
   if (transferError) {
-    await supabase
-      .from("account")
-      .update({ balance: fromAccount.balance })
-      .eq("id", params.fromAccountId)
-    await supabase
-      .from("account")
-      .update({ balance: toAccount.balance })
-      .eq("id", params.toAccountId)
+    // Balance already committed by RPC — reverse it atomically.
+    await supabase.rpc('atomic_transfer_funds', {
+      p_from_account_id: params.toAccountId,
+      p_to_account_id: params.fromAccountId,
+      p_amount: params.amount,
+      p_user_id: user.id,
+    })
     console.error('[transaction] createTransfer transfer insert failed', transferError)
     return { success: false, error: 'Something went wrong. Please try again.' }
   }
@@ -582,7 +577,7 @@ export async function getAccountTransactions(
   } = await supabase.auth.getUser()
 
   if (authError || !user) {
-    throw new Error("You must be signed in to view transactions.")
+    return []
   }
 
   if (!accountId) {
@@ -600,7 +595,7 @@ export async function getAccountTransactions(
   }
 
   if (account.user_id !== user.id) {
-    throw new Error("You do not have access to this account.")
+    return []
   }
 
   const [paymentsResult, transfersResult] = await Promise.all([

@@ -33,6 +33,9 @@ const nextConfig = {
         key: "Content-Security-Policy",
         value: [
           "default-src 'self';",
+          // 'unsafe-inline' for scripts is required by Stripe (js.stripe.com injects inline scripts).
+          // 'unsafe-inline' for styles is required by Google Fonts and Tailwind's runtime styles.
+          // Nonce-based CSP would require Stripe to support nonces — it does not currently.
           "script-src 'self' 'unsafe-inline' https://js.stripe.com;",
           "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;",
           "img-src 'self' data: blob: https://*.stripe.com https://i.imgur.com https://images.unsplash.com https://plus.unsplash.com https://*.supabase.co;",

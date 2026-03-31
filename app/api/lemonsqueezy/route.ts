@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "crypto"
+import { createHash, createHmac, timingSafeEqual } from "crypto"
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
@@ -186,6 +186,28 @@ export async function POST(req: NextRequest) {
     return new NextResponse("Invalid signature", { status: 401 })
   }
 
+  const adminSupabase = createAdminClient()
+
+  // Idempotency: SHA-256 of the raw body uniquely identifies this exact payload.
+  // If the same event is delivered more than once, skip reprocessing and return 200
+  // so LemonSqueezy does not keep retrying.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const webhookEventsTable = (adminSupabase as any).from("webhook_events")
+  const eventId = createHash("sha256").update(body).digest("hex")
+  // TODO: run `pnpm db:types` after applying migration 20260331000000_create_webhook_events.sql
+  // to remove the cast above and restore full type safety.
+  const { error: dupeError } = await webhookEventsTable
+    .insert({ source: "lemonsqueezy", event_id: eventId })
+
+  if (dupeError) {
+    if (dupeError.code === "23505") {
+      // Unique constraint violation — already processed this event.
+      return NextResponse.json({ received: true })
+    }
+    // Non-fatal: log and continue so the event is still processed.
+    console.error("[ls/webhook] failed to record event for idempotency", dupeError)
+  }
+
   let payload: LSWebhookPayload
   try {
     payload = JSON.parse(body) as LSWebhookPayload
@@ -197,8 +219,6 @@ export async function POST(req: NextRequest) {
   const supabaseUserId =
     payload.meta.custom_data?.supabase_user_id ??
     payload.data.attributes.custom_data?.supabase_user_id
-
-  const adminSupabase = createAdminClient()
 
   try {
     switch (eventName) {

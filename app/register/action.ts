@@ -1,7 +1,9 @@
 'use server'
 
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
+import { getRegisterLimiter } from '@/lib/rate-limit'
 
 const EMAIL_CONFIRM_MESSAGE = 'Please check your email to confirm your account.'
 const EMAIL_EXISTS_MESSAGE = 'An account with this email already exists.'
@@ -34,6 +36,15 @@ export async function register(formData: FormData): Promise<RegisterResult> {
     }
     if (password.length < 8) {
         return { success: false, error: 'Password must be at least 8 characters.' }
+    }
+
+    const ip = (await headers()).get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1'
+    const limiter = getRegisterLimiter()
+    if (limiter) {
+        const { success } = await limiter.limit(ip)
+        if (!success) {
+            return { success: false, error: 'Too many registration attempts. Please try again later.' }
+        }
     }
 
     const supabase = await createClient()

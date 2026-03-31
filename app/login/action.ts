@@ -1,9 +1,10 @@
 'use server'
 
 import { redirect } from "next/navigation"
-import { cookies } from "next/headers"
+import { cookies, headers } from "next/headers"
 import { createServerClient } from "@supabase/ssr"
 import { safeRedirect } from "@/lib/safe-redirect"
+import { getLoginLimiter } from "@/lib/rate-limit"
 
 const GENERIC_ERROR_MESSAGE = 'Something went wrong. Please try again.'
 const THIRTY_DAYS = 30 * 24 * 60 * 60
@@ -23,6 +24,15 @@ export async function login(formData: FormData) {
 
     if (!email || !password) {
         return { success: false, error: "Email and password are required" };
+    }
+
+    const ip = (await headers()).get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1'
+    const limiter = getLoginLimiter()
+    if (limiter) {
+        const { success } = await limiter.limit(ip)
+        if (!success) {
+            return { success: false, error: 'Too many login attempts. Please try again in 15 minutes.' }
+        }
     }
 
     const cookieStore = await cookies();
