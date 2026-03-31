@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og"
 
 export const runtime = "edge"
-export const alt = "Clairo – Smart Financial Management Made Simple"
+export const alt = "Budget Partner – Smart Financial Management Made Simple"
 export const size = { width: 1200, height: 630 }
 export const contentType = "image/png"
 
@@ -65,7 +65,7 @@ export default async function Image() {
             ))}
           </div>
           <span style={{ fontSize: 32, fontWeight: 700, color: "#ffffff", letterSpacing: "-0.5px" }}>
-            Clairo
+            Budget Partner
           </span>
         </div>
 

@@ -21,6 +21,7 @@ const footerLinks = {
     { label: "Contact", href: "#" },
     { label: "Privacy Policy", href: "/privacy" },
     { label: "Terms of Service", href: "/terms" },
+    { label: "Refund Policy", href: "/refund" },
   ],
 }
 
@@ -76,10 +77,11 @@ export function Footer() {
         </div>
 
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border pt-8 sm:flex-row">
-          <p className="text-xs text-muted-foreground">Copyright {new Date().getFullYear()} Clairo. All rights reserved.</p>
+          <p className="text-xs text-muted-foreground">Copyright {new Date().getFullYear()} Budget Partner. All rights reserved.</p>
           <div className="flex gap-6">
             <Link href="/privacy" className="text-xs text-muted-foreground hover:text-foreground">Privacy Policy</Link>
             <Link href="/terms" className="text-xs text-muted-foreground hover:text-foreground">Terms and Conditions</Link>
+            <Link href="/refund" className="text-xs text-muted-foreground hover:text-foreground">Refund Policy</Link>
             <Link href="#" className="text-xs text-muted-foreground hover:text-foreground">Contact</Link>
           </div>
         </div>

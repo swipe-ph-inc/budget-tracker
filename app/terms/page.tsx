@@ -7,8 +7,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 }
 
-const LAST_UPDATED = "March 12, 2026"
-const CONTACT_EMAIL = "legal@budgetpartner.com"
+const LAST_UPDATED = "March 30, 2026"
+const CONTACT_EMAIL = "admin@budgetpartner.com"
 
 export default function TermsOfServicePage() {
   return (
@@ -56,10 +56,15 @@ export default function TermsOfServicePage() {
 
           <h2>4. Subscription Plans and Billing</h2>
           <p>
-            Certain features of the Service require a paid subscription. Subscription fees are billed in advance on a monthly or annual basis as selected. All payments are processed by Stripe. Fees are non-refundable except as required by applicable law or as expressly stated in our refund policy.
+            Certain features of the Service require a paid subscription (Pro plan). Subscription fees are billed in advance on a monthly or annual basis as selected. All payments are processed securely by LemonSqueezy. Current pricing is available on our{" "}
+            <Link href="/dashboard/subscription" className="text-primary hover:underline">Subscription page</Link>.
           </p>
           <p>
-            We reserve the right to change subscription prices upon reasonable notice. Continued use of the Service after a price change constitutes acceptance of the new pricing.
+            New users may be eligible for a 14-day free trial of the Pro plan. No credit card is required to start a trial. At the end of the trial period, your account will automatically revert to the Free plan unless you choose to subscribe.
+          </p>
+          <p>
+            Fees are non-refundable except as required by applicable law or as expressly stated in our{" "}
+            <Link href="/refund" className="text-primary hover:underline">Refund Policy</Link>. We reserve the right to change subscription prices upon reasonable notice. Continued use of the Service after a price change constitutes acceptance of the new pricing.
           </p>
 
           <h2>5. Financial Data and No Advice</h2>
@@ -94,7 +99,7 @@ export default function TermsOfServicePage() {
 
           <h2>11. Governing Law</h2>
           <p>
-            These Terms are governed by and construed in accordance with applicable law. Any disputes arising from these Terms or the Service shall be resolved through binding arbitration or in the courts of competent jurisdiction, as required by law.
+            These Terms are governed by and construed in accordance with the laws of the Republic of the Philippines. Any disputes arising out of or in connection with these Terms or the Service shall be subject to the exclusive jurisdiction of the courts of competent jurisdiction in the Philippines.
           </p>
 
           <h2>12. Changes to These Terms</h2>
@@ -113,6 +118,7 @@ export default function TermsOfServicePage() {
           <p>&copy; {new Date().getFullYear()} Budget Partner. All rights reserved.</p>
           <div className="mt-2 flex justify-center gap-6">
             <Link href="/privacy" className="hover:text-foreground">Privacy Policy</Link>
+            <Link href="/refund" className="hover:text-foreground">Refund Policy</Link>
             <Link href="/" className="hover:text-foreground">Home</Link>
           </div>
         </div>

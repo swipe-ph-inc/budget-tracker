@@ -12,8 +12,8 @@ const inter = Inter({
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
   title: {
-    default: 'Clairo – Smart Financial Management',
-    template: '%s | Clairo',
+    default: 'Budget Partner – Smart Financial Management',
+    template: '%s | Budget Partner',
   },
   description:
     'Take control of your finances with real-time analytics, seamless payments, and intelligent insights. Track expenses, grow savings, and invest wisely.',
@@ -29,14 +29,14 @@ export const metadata: Metadata = {
     'cashflow analytics',
     'online banking dashboard',
   ],
-  authors: [{ name: 'Clairo' }],
-  creator: 'Clairo',
+  authors: [{ name: 'Budget Partner' }],
+  creator: 'Budget Partner',
   openGraph: {
     type: 'website',
     locale: 'en_US',
     url: '/',
-    siteName: 'Clairo',
-    title: 'Clairo – Smart Financial Management',
+    siteName: 'Budget Partner',
+    title: 'Budget Partner – Smart Financial Management',
     description:
       'Take full control of your finances with real-time analytics, seamless payments, and intelligent insights. Track expenses, grow savings, and invest wisely.',
     images: [
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
         url: '/opengraph-image.png',
         width: 1200,
         height: 630,
-        alt: 'Clairo – Smart Financial Management Dashboard',
+        alt: 'Budget Partner – Smart Financial Management Dashboard',
       },
     ],
   },
@@ -54,7 +54,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Clairo – Smart Financial Management',
+    title: 'Budget Partner – Smart Financial Management',
     description:
       'Take full control of your finances with real-time analytics, seamless payments, and intelligent insights.',
     images: ['/opengraph-image.png'],

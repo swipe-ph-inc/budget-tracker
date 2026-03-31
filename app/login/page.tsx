@@ -27,7 +27,7 @@ function LoginPageContent() {
           <Link href="/" className="flex items-center gap-2.5">
             <img
               src="/clairo-logo.svg"
-              alt="Clairo"
+              alt="Budget Partner"
               className="h-9 w-auto object-contain"
               width={100}
               height={36}
@@ -56,7 +56,7 @@ function LoginPageContent() {
             ))}
           </div>
           <p className="text-sm text-primary-foreground/80">
-            <span className="font-semibold text-primary-foreground">50,000+</span> users trust Clairo
+            <span className="font-semibold text-primary-foreground">50,000+</span> users trust Budget Partner
           </p>
         </div>
 
@@ -73,7 +73,7 @@ function LoginPageContent() {
           <Link href="/" className="flex items-center gap-2">
             <img
               src="/clairo-logo.svg"
-              alt="Clairo"
+              alt="Budget Partner"
               className="h-8 w-auto object-contain"
               width={120}
               height={32}

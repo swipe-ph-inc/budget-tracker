@@ -37,7 +37,7 @@ export default function RegisterPage() {
           <Link href="/" className="flex items-center gap-2.5">
             <img
               src="/clairo-logo.svg"
-              alt="Clairo"
+              alt="Budget Partner"
               className="h-9 w-auto object-contain"
               width={100}
               height={36}
@@ -50,7 +50,7 @@ export default function RegisterPage() {
             Start your financial journey today
           </h1>
           <p className="mt-4 max-w-md text-pretty text-base leading-relaxed text-primary-foreground/80">
-            Join thousands of users who trust Clairo to manage their finances, track investments, and achieve their savings goals.
+            Join thousands of users who trust Budget Partner to manage their finances, track investments, and achieve their savings goals.
           </p>
 
           <div className="mt-8 flex flex-col gap-4">
@@ -68,7 +68,7 @@ export default function RegisterPage() {
         </div>
 
         <p className="relative z-10 text-xs text-primary-foreground/60">
-          &copy; {new Date().getFullYear()} Clairo. All rights reserved.
+          &copy; {new Date().getFullYear()} Budget Partner. All rights reserved.
         </p>
 
         {/* Background decoration */}
@@ -83,7 +83,7 @@ export default function RegisterPage() {
           <Link href="/" className="flex items-center gap-2">
             <img
               src="/clairo-logo.svg"
-              alt="Clairo"
+              alt="Budget Partner"
               className="h-8 w-auto object-contain"
               width={120}
               height={32}
