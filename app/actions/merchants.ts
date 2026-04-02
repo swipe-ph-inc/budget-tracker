@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 const GENERIC_ERROR_MESSAGE = 'Something went wrong. Please try again.'
 
@@ -59,7 +60,8 @@ export async function registerMerchantCategory(
     return { success: false, error: "Category name must be 100 characters or less." }
   }
 
-  const { data, error } = await supabase
+  const admin = createAdminClient()
+  const { data, error } = await admin
     .from("merchant_category")
     .insert({ name: trimmedName })
     .select("id")
@@ -70,7 +72,7 @@ export async function registerMerchantCategory(
       return { success: false, error: "A category with this name already exists." }
     }
     console.error('[merchants] registerMerchantCategory failed', error)
-    return { success: false, error: 'Something went wrong. Please try again.' }
+    return { success: false, error: error.message || GENERIC_ERROR_MESSAGE }
   }
 
   return { success: true, data: { id: data.id } }
@@ -96,7 +98,8 @@ export async function updateMerchantCategory(
     return { success: false, error: "Category name must be 100 characters or less." }
   }
 
-  const { error } = await supabase
+  const admin = createAdminClient()
+  const { error } = await admin
     .from("merchant_category")
     .update({ name: trimmedName })
     .eq("id", id)
@@ -106,7 +109,7 @@ export async function updateMerchantCategory(
       return { success: false, error: "A category with this name already exists." }
     }
     console.error('[merchants] updateMerchantCategory failed', error)
-    return { success: false, error: 'Something went wrong. Please try again.' }
+    return { success: false, error: error.message || GENERIC_ERROR_MESSAGE }
   }
 
   return { success: true }
@@ -123,7 +126,8 @@ export async function deleteMerchantCategory(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { success: false, error: "You must be signed in." }
 
-  const { error } = await supabase.from("merchant_category").delete().eq("id", id)
+  const admin = createAdminClient()
+  const { error } = await admin.from("merchant_category").delete().eq("id", id)
 
   if (error) {
     if (error.code === "23503") {
@@ -133,7 +137,7 @@ export async function deleteMerchantCategory(
       }
     }
     console.error('[merchants] deleteMerchantCategory failed', error)
-    return { success: false, error: 'Something went wrong. Please try again.' }
+    return { success: false, error: error.message || GENERIC_ERROR_MESSAGE }
   }
 
   return { success: true }
@@ -204,7 +208,8 @@ export async function registerMerchant(
     return { success: false, error: "Merchant category is required." }
   }
 
-  const { data, error } = await supabase
+  const admin = createAdminClient()
+  const { data, error } = await admin
     .from("merchant")
     .insert({ name: trimmedName, category_id: categoryId.trim() })
     .select("id")
@@ -212,7 +217,7 @@ export async function registerMerchant(
 
   if (error) {
     console.error('[merchants] registerMerchant failed', error)
-    return { success: false, error: 'Something went wrong. Please try again.' }
+    return { success: false, error: error.message || GENERIC_ERROR_MESSAGE }
   }
 
   return { success: true, data: { id: data.id } }
@@ -242,14 +247,15 @@ export async function updateMerchant(
     return { success: false, error: "Merchant category is required." }
   }
 
-  const { error } = await supabase
+  const admin = createAdminClient()
+  const { error } = await admin
     .from("merchant")
     .update({ name: trimmedName, category_id: categoryId.trim() })
     .eq("id", id)
 
   if (error) {
     console.error('[merchants] updateMerchant failed', error)
-    return { success: false, error: 'Something went wrong. Please try again.' }
+    return { success: false, error: error.message || GENERIC_ERROR_MESSAGE }
   }
 
   return { success: true }
@@ -264,11 +270,12 @@ export async function deleteMerchant(id: string): Promise<DeleteMerchantResult> 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { success: false, error: "You must be signed in." }
 
-  const { error } = await supabase.from("merchant").delete().eq("id", id)
+  const admin = createAdminClient()
+  const { error } = await admin.from("merchant").delete().eq("id", id)
 
   if (error) {
     console.error('[merchants] deleteMerchant failed', error)
-    return { success: false, error: 'Something went wrong. Please try again.' }
+    return { success: false, error: error.message || GENERIC_ERROR_MESSAGE }
   }
 
   return { success: true }

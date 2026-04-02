@@ -32,6 +32,10 @@ type UpdateAccountValues = {
     maskedIdentifier?: string
     currency?: string
     bankName?: string | null
+    hidden?: boolean
+    cardType?: string | null
+    backgroundImgUrl?: string | null
+    cardNetworkUrl?: string | null
 }
 
 export async function createAccount(
@@ -148,6 +152,10 @@ type AccountUpdateFields = {
     masked_identifier?: string
     currency?: string
     bank_name?: string | null
+    hidden?: boolean
+    card_type?: string | null
+    background_img_url?: string | null
+    card_network_url?: string | null
 }
 
 export async function updateAccount(values: UpdateAccountValues): Promise<CreateAccountResult> {
@@ -192,6 +200,18 @@ export async function updateAccount(values: UpdateAccountValues): Promise<Create
                 ? null
                 : (values.bankName?.trim?.() ?? null)
     }
+    if (values.hidden !== undefined) {
+        updateFields.hidden = values.hidden
+    }
+    if (values.cardType !== undefined) {
+        updateFields.card_type = values.cardType
+    }
+    if (values.backgroundImgUrl !== undefined) {
+        updateFields.background_img_url = values.backgroundImgUrl
+    }
+    if (values.cardNetworkUrl !== undefined) {
+        updateFields.card_network_url = values.cardNetworkUrl
+    }
 
     if (Object.keys(updateFields).length === 0) {
         return { success: false, error: "No update fields provided." }
@@ -201,6 +221,7 @@ export async function updateAccount(values: UpdateAccountValues): Promise<Create
         .from("account")
         .update(updateFields)
         .eq("id", accountId)
+        .eq("user_id", user.id)
         .select("id")
         .single()
 

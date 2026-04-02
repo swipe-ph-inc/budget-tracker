@@ -14,6 +14,7 @@ import {
   Mail,
   Gift,
   BarChart3,
+  Store,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -42,6 +43,7 @@ const sidebarItems: SidebarItem[] = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
   { label: "Account", icon: User, href: "/dashboard/account" },
   { label: "Credit Cards", icon: CreditCard, href: "/dashboard/cards" },
+  { label: "Merchants", icon: Store, href: "/dashboard/merchants" },
   {
     label: "Payments",
     icon: ArrowLeftRight,

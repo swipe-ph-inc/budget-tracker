@@ -78,6 +78,10 @@ export const BACKGROUND = [
   { value: "https://i.imgur.com/Zi6v09P.png", label: "Orange" },
 ] as const
 
+function pickRandomBackground(): string {
+  return BACKGROUND[Math.floor(Math.random() * BACKGROUND.length)]?.value ?? ""
+}
+
 export interface AddAccountFormValues {
   accountName: string
   bankName: string
@@ -141,7 +145,7 @@ export function AddAccountDialog({
   const [totalBalance, setTotalBalance] = useState<string>("")
   const [currency, setCurrency] = useState<string>("PHP")
   const [accountType, setAccountType] = useState<string>("savings")
-  const [cardType, setCardType] = useState<string>("none")
+  const [cardType, setCardType] = useState<string>("mastercard")
   const [cardNetworkUrl, setCardNetworkUrl] = useState<string>("")
   const [background, setBackground] = useState<string>("")
   const [hideContents, setHideContents] = useState<boolean>(false)
@@ -153,6 +157,7 @@ export function AddAccountDialog({
   useEffect(() => {
     if (open) {
       setStatus(null)
+      setBackground(pickRandomBackground())
       return
     }
     // Clear all fields when the dialog closes so reopening starts fresh
@@ -162,7 +167,7 @@ export function AddAccountDialog({
     setTotalBalance("")
     setCurrency("PHP")
     setAccountType("savings")
-    setCardType("none")
+    setCardType("mastercard")
     setCardNetworkUrl("")
     setBackground("")
     setHideContents(false)
@@ -180,7 +185,6 @@ export function AddAccountDialog({
     if (!bankName.trim()) missingFields.push("Bank Name")
     if (!maskedIdentifier.trim()) missingFields.push("Masked Identifier")
     if (!totalBalance.trim()) missingFields.push("Total Balance")
-    if (!background.trim()) missingFields.push("Background Color")
 
     if (missingFields.length > 0) {
       setStatus({
@@ -192,6 +196,7 @@ export function AddAccountDialog({
       return
     }
 
+    const resolvedBackground = background.trim() || pickRandomBackground()
     const payload = {
       accountName,
       bankName,
@@ -201,7 +206,7 @@ export function AddAccountDialog({
       accountType,
       cardType,
       isHidden: hideContents,
-      background,
+      background: resolvedBackground,
       cardNetworkUrl: CARD_TYPES.find((t) => t.value === cardType)?.url ?? "",
     }
 
@@ -274,7 +279,7 @@ export function AddAccountDialog({
           <div className="sm:col-span-2 grid gap-2">
             <div className="flex flex-col gap-2 sm:flex-row">
               <div className="flex-1 grid gap-2">
-                <Label htmlFor="masked-identifier">Masked Identifier</Label>
+                <Label htmlFor="masked-identifier">Account Number</Label>
                 <div className="flex overflow-hidden rounded-md border border-input focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
                   <Input
                     id="masked-identifier"
@@ -389,42 +394,6 @@ export function AddAccountDialog({
                 ))}
               </SelectContent>
             </Select>
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="background">Background Color</Label>
-            <Select
-              name="background"
-              value={background}
-              onValueChange={setBackground}
-            >
-              <SelectTrigger id="background">
-                <SelectValue placeholder="Select background type" />
-              </SelectTrigger>
-              <SelectContent>
-                {BACKGROUND.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>
-                    {t.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex items-center space-x-2 sm:col-span-2">
-            <Checkbox
-              id="hide-contents"
-              checked={hideContents}
-              onCheckedChange={(checked) =>
-                setHideContents(checked === true)
-              }
-            />
-            <Label
-              htmlFor="hide-contents"
-              className="text-sm font-normal cursor-pointer"
-            >
-              Make the contents hidden or not
-            </Label>
           </div>
 
           <DialogFooter className="mt-2 flex flex-col gap-2 sm:col-span-2 sm:flex-row sm:justify-end">

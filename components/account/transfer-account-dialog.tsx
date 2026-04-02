@@ -320,44 +320,6 @@ export function TransferAccountDialog({
             </div>
           </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="transfer-method">Transfer Method</Label>
-            <Select
-              value={transferMethod}
-              onValueChange={(v) =>
-                setTransferMethod(v as "instaPay" | "pesoNet" | "wire" | "cash")
-              }
-            >
-              <SelectTrigger id="transfer-method">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="instaPay">InstaPay</SelectItem>
-                <SelectItem value="pesoNet">PesoNet</SelectItem>
-                <SelectItem value="wire">Wire</SelectItem>
-                <SelectItem value="cash">Cash</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="transfer-type">Transfer Type</Label>
-            <Select
-              value={transferType}
-              onValueChange={(v) =>
-                setTransferType(v as "local" | "international")
-              }
-            >
-              <SelectTrigger id="transfer-type">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="local">Local</SelectItem>
-                <SelectItem value="international">International</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
           <div className="grid gap-2 sm:col-span-2">
             <Label htmlFor="transfer-fee">Fee Amount (optional)</Label>
             <div className="flex overflow-hidden rounded-md border border-input focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">

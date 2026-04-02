@@ -27,7 +27,6 @@ import {
 import { TopUpAccountDialog } from "@/components/account/top-up-account-dialog"
 import { TransferAccountDialog } from "@/components/account/transfer-account-dialog"
 import { PaymentAccountDialog } from "@/components/account/payment-account-dialog"
-import { ManageMerchantDialog } from "@/components/account/manage-merchant-dialog"
 import { deactivateAccount, deleteAccount } from "@/app/actions/accounts"
 import {
   getAccountPageData,
@@ -181,7 +180,6 @@ export default function AccountPage() {
   const [updateAccountId, setUpdateAccountId] = useState<string | null>(null)
   const [updateInitialValues, setUpdateInitialValues] =
     useState<UpdateAccountInitialValues | null>(null)
-  const [manageMerchantOpen, setManageMerchantOpen] = useState(false)
   const [transactions, setTransactions] = useState<AccountTransaction[]>([])
   const [accountListScope, setAccountListScope] =
     useState<AccountListScope>("active")
@@ -367,10 +365,6 @@ export default function AccountPage() {
           onUpdated={refreshAfterMutation}
         />
       )}
-      <ManageMerchantDialog
-        open={manageMerchantOpen}
-        onOpenChange={setManageMerchantOpen}
-      />
       {loading ? (
         <div className="min-h-0 flex-1 overflow-y-auto p-4 lg:p-6">
           <div className="mx-auto max-w-screen-2xl space-y-6">
@@ -696,7 +690,7 @@ export default function AccountPage() {
                   </div>
                 </div>
 
-                {/* Manage account + Manage Merchant (side by side) */}
+                {/* Manage account */}
                 <div className="flex flex-col gap-4 border-t border-border pt-5 sm:flex-row sm:items-start sm:justify-between">
                   <div className="flex flex-col gap-2">
                     <p className="text-xs font-medium text-muted-foreground">Manage account</p>
@@ -742,7 +736,12 @@ export default function AccountPage() {
                               totalBalance: formattedBalance,
                               currency: selectedAccount.currency || "PHP",
                               accountType:
-                                selectedAccount.account_type as UpdateAccountInitialValues["accountType"]
+                                selectedAccount.account_type as UpdateAccountInitialValues["accountType"],
+                              hidden: selectedAccount.hidden ?? false,
+                              cardType: selectedAccount.card_type ?? null,
+                              backgroundImgUrl:
+                                selectedAccount.background_img_url ?? null,
+                              cardNetworkUrl: selectedAccount.card_network_url ?? null,
                             })
                             setUpdateAccountOpen(true)
                             return
@@ -802,20 +801,6 @@ export default function AccountPage() {
                           </button>
                         );
                       })}
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-2 items-center text-right">
-                    <p className="text-xs font-medium text-muted-foreground">Manage Merchant</p>
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        title="Show merchants"
-                        onClick={() => setManageMerchantOpen(true)}
-                        className="flex h-9 min-w-[88px] items-center justify-center gap-1.5 rounded-lg border border-border bg-muted/50 px-4 text-xs font-medium text-foreground transition-colors hover:bg-accent"
-                      >
-                        <Store className="h-3.5 w-3.5" aria-hidden />
-                        <span>Show merchants</span>
-                      </button>
                     </div>
                   </div>
                 </div>

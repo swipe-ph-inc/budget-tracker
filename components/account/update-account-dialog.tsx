@@ -21,7 +21,13 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { SuccessMessage, ErrorMessage } from "@/components/ui/status-message"
-import { ACCOUNT_TYPES, CURRENCIES } from "@/components/account/add-account-dialog"
+import { Checkbox } from "@/components/ui/checkbox"
+import {
+  ACCOUNT_TYPES,
+  BACKGROUND,
+  CARD_TYPES,
+  CURRENCIES,
+} from "@/components/account/add-account-dialog"
 import { updateAccount } from "@/app/actions/accounts"
 
 /** Formats a numeric input string with locale thousands separators (e.g. 1234567.89 -> 1,234,567.89) */
@@ -65,6 +71,10 @@ export type UpdateAccountInitialValues = {
     | "e_wallet"
     | "cash"
     | "other"
+  hidden: boolean
+  cardType: string | null
+  backgroundImgUrl: string | null
+  cardNetworkUrl: string | null
 }
 
 interface UpdateAccountDialogProps {
@@ -94,6 +104,11 @@ export function UpdateAccountDialog({
   const [accountType, setAccountType] = useState<string>(
     initialValues.accountType,
   )
+  const [hidden, setHidden] = useState<boolean>(initialValues.hidden)
+  const [cardType, setCardType] = useState<string>(initialValues.cardType ?? "none")
+  const [backgroundImgUrl, setBackgroundImgUrl] = useState<string>(
+    initialValues.backgroundImgUrl ?? "",
+  )
   const [status, setStatus] = useState<
     { type: "success" | "error"; message: string } | null
   >(null)
@@ -109,6 +124,9 @@ export function UpdateAccountDialog({
       setTotalBalance(initialValues.totalBalance)
       setCurrency(initialValues.currency)
       setAccountType(initialValues.accountType)
+      setHidden(initialValues.hidden)
+      setCardType(initialValues.cardType ?? "none")
+      setBackgroundImgUrl(initialValues.backgroundImgUrl ?? "")
     }
   }, [open, initialValues])
 
@@ -148,6 +166,10 @@ export function UpdateAccountDialog({
       maskedIdentifier?: string
       currency?: string
       bankName?: string | null
+      hidden?: boolean
+      cardType?: string | null
+      backgroundImgUrl?: string | null
+      cardNetworkUrl?: string | null
     } = {
       accountId,
     }
@@ -177,6 +199,26 @@ export function UpdateAccountDialog({
     const initialBankNameNormalized = (initialValues.bankName ?? "").trim()
     if (normalizedBankName !== initialBankNameNormalized) {
       payload.bankName = normalizedBankName === "" ? null : normalizedBankName
+    }
+
+    if (hidden !== initialValues.hidden) {
+      payload.hidden = hidden
+    }
+
+    const normalizedCardType = cardType.trim() || "none"
+    const initialCardType = (initialValues.cardType ?? "none").trim() || "none"
+    if (normalizedCardType !== initialCardType) {
+      payload.cardType = normalizedCardType === "none" ? null : normalizedCardType
+      payload.cardNetworkUrl =
+        normalizedCardType === "none"
+          ? null
+          : (CARD_TYPES.find((t) => t.value === normalizedCardType)?.url ?? null)
+    }
+
+    const normalizedBg = backgroundImgUrl.trim() || ""
+    const initialBg = (initialValues.backgroundImgUrl ?? "").trim()
+    if (normalizedBg !== initialBg) {
+      payload.backgroundImgUrl = normalizedBg === "" ? null : normalizedBg
     }
 
     // Avoid calling the server if nothing changed
@@ -342,6 +384,58 @@ export function UpdateAccountDialog({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="card-type">Card Type</Label>
+            <Select name="card_type" value={cardType} onValueChange={setCardType}>
+              <SelectTrigger id="card-type">
+                <SelectValue placeholder="Select card type" />
+              </SelectTrigger>
+              <SelectContent>
+                {CARD_TYPES.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>
+                    {t.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="background">Background Color</Label>
+            <Select
+              name="background"
+              value={backgroundImgUrl}
+              onValueChange={setBackgroundImgUrl}
+            >
+              <SelectTrigger id="background">
+                <SelectValue placeholder="Select background type" />
+              </SelectTrigger>
+              <SelectContent>
+                {BACKGROUND.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>
+                    {t.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-start gap-3 sm:col-span-2">
+            <Checkbox
+              id="hidden"
+              checked={hidden}
+              onCheckedChange={(v) => setHidden(v === true)}
+            />
+            <div className="grid gap-1 leading-none">
+              <Label htmlFor="hidden" className="cursor-pointer">
+                Hidden contents
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                When enabled, sensitive values may be hidden in parts of the UI.
+              </p>
+            </div>
           </div>
 
           <DialogFooter className="mt-2 flex flex-col gap-2 sm:col-span-2 sm:flex-row sm:justify-end">
